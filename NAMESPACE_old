@@ -1,0 +1,27 @@
+importFrom(graphics, hist, plot)
+
+importFrom(someMTP, p.adjust.w)
+
+importFrom(stats, coefficients, fitted.values, residuals, weights, alias, 
+	model.matrix, p.adjust, p.adjust.methods)
+
+import(methods)
+exportPattern("^[[:alpha:]]+")
+exportMethods(
+    "[",
+    "[[",
+    "hist",
+    "length",
+    "names",
+    "names<-",
+    "p.value",
+    "plot",
+    "result",
+    "show",
+    "size",
+    "sort",
+    "summary" 
+)
+
+
+

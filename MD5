@@ -1,0 +1,16 @@
+6b34e49df6e0502f7a842f696dca7a08 *DESCRIPTION
+c43ce0e447920f73c810e73459572ab6 *NAMESPACE
+bb61244ab8a0d9149a7fa7a3cd6637d5 *NAMESPACE_old
+a6750fdc408eb3a7c52e7b74f9c753e9 *R/Padjust.R
+03043c8db28f6f030b9fb134a2cbcfc8 *R/dependence.R
+b6a75d9fd4091e8548b543bfc85060b1 *R/flip-object.R
+7a3cd2930ca804053d3d71ea041ddb89 *R/flip.R
+7687358d53ff5e652db8c9156f728887 *R/npc.R
+683b52937d69d958a8b6c85335883fef *R/symmetry.R
+8a9f3114fff8af82206712b1d598d58f *R/utilities.R
+01620a9ae494a777087fc3ad52762361 *man/flip-internal.Rd
+6780ce66d7171f8eb13d4e689edda8f1 *man/flip-package.Rd
+4716a77cfca24870ef27475422993413 *man/flip.Rd
+de82cf161b4c7aab6c8d3e02095f0399 *man/flip.object-class.Rd
+354dfa3afaa7cb4c7655a976476e7188 *man/multiplicity.Rd
+9f8757f0a3a1f0132919c6a15a39abae *man/permutationSpace.Rd
