@@ -1,8 +1,9 @@
 
-flip.adjust <- function (permTP, method = "maxT", maxalpha=1, weights=NULL,...) {
+flip.adjust <- function (permTP, method = flip.npc.methods, maxalpha=1, weights=NULL, stdSpace=FALSE, ...) {
     
 	##TODO: here is case sensitive, while in npc it is not. here is so for compatibility with p.adjust. shall we change?
-	method <- match.arg(method,c(p.adjust.methods,"maxT","minP","maxTstd"))  
+	method <- match.arg(method,c(p.adjust.methods,flip.npc.methods))
+	
 	
 	##TODO: add some check for names(weights) compatibility. 
 	##TODO: exclude missing names (eg permTP=permTP[names(weights)]
@@ -14,14 +15,21 @@ flip.adjust <- function (permTP, method = "maxT", maxalpha=1, weights=NULL,...) 
 			adjs=p.adjust(p.value(permTP), method = method)
 		} else if((method%in%p.adjust.methods) & (!is.null(weights))){
 			#standard function but weigthed
+			if(method=="hommel") {print("weighted \"hommel\" method not allowed."); return()}
 			adjs=p.adjust.w(p.value(permTP), method = method, w=weights)
 		} else {		#perform permutation specific procedures
 			if(method=="minP") {
-				adjs=.maxt.adjust(if(is.null(permTP@permP)) -t2p(permTP@permT,obs.only=FALSE) else -permTP@permP, method = method, maxalpha,weights=weights)
-			} else if(method=="maxTstd") { 
-				adjs=.maxt.adjust(scale(permTP@permT), method = method, maxalpha,weights=weights)
+				adjs=.maxt.adjust(if(is.null(permTP@permP)) -t2p(permTP@permT,obs.only=FALSE,tail=permTP@tail) else -permTP@permP,  maxalpha,weights=weights)
+			} else if(method=="maxT") {
+				if(stdSpace) {permTP@permT = .t2stdt(permTP@permT,FALSE)}
+				adjs=.maxt.adjust(.setTail(permTP@permT, tail=permTP@tail), maxalpha,weights=weights)
 			} else {
-				adjs=.maxt.adjust(permTP@permT, method = method, maxalpha,weights=weights)
+			#otherwise perform closed testing
+			if(stdSpace & (method %in% c("sumT", "sumT2"))) {permTP@permT = .t2stdt(permTP@permT,FALSE)}
+			# Define the local test to be used in the closed testing procedure
+			mytest <- function(hyps) {p.value(npc(permTP[hyps],method,weights=weights[hyps]))}
+			cl <- closed(mytest, names(permTP),alpha=NA)
+			adjs=sapply(names(permTP),function(id) adjusted(cl,id))
 			}
 		}
 		#fit it to the flip-object
@@ -35,16 +43,22 @@ flip.adjust <- function (permTP, method = "maxT", maxalpha=1, weights=NULL,...) 
 			return(p.adjust(permTP, method = method))
 		} else if((method%in%p.adjust.methods) & (!is.null(weights))){
 			#standard function but weigthed
+			if(method=="hommel") {print("weighted \"hommel\" method not allowed."); return()}
 			return(p.adjust.w(permTP, method = method, w=weights))
 		} else{		#perform permutation specific procedures
-			if(method=="minP") {
-				return(.maxt.adjust(-permTP, method = method, maxalpha,weights=weights))
-			} else if(method=="maxTstd") { 
-				return(.maxt.adjust(scale(permTP), method = method, maxalpha,weights=weights))
+			if(method=="minp") {
+				return(.maxt.adjust(-permTP, maxalpha,weights=weights))
+			} else if(method=="maxtstd") { 
+				return(.maxt.adjust(scale(permTP),  maxalpha,weights=weights))
+			} else if(method=="maxT") {
+				return(.maxt.adjust(permTP, maxalpha,weights=weights))
 			} else {
-				return(.maxt.adjust(permTP, method = method, maxalpha,weights=weights))
+			#then perform closed testing
+			# Define the local test to be used in the closed testing procedure
+			mytest <- function(hyps) {p.value(npc(permTP[,hyps],method,weights=weights[hyps]))}
+			cl <- closed(mytest, colnames(permTP),adjust=TRUE)
+			adjs=cl@adjusted[1:ncol(permTP)]
 			}
-			
 		}
 	}
 	
@@ -52,10 +66,10 @@ flip.adjust <- function (permTP, method = "maxT", maxalpha=1, weights=NULL,...) 
 
 
 ################
-.maxt.adjust <- function(permT,method,maxalpha=1,weights=NULL) {
+.maxt.adjust <- function(permT,maxalpha=1,weights=NULL) {
 	
 	#numb of hypos
-	m=dim(permT)[2]
+	m=ncol(permT)
 	
 	#get colnames to 
 	if(is.null(colnames(permT))) colnames(permT)=1:m

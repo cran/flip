@@ -1,4 +1,5 @@
 \name{permutationSpace}
+\alias{permutationSpace}
 \alias{make.permSpace}
 \alias{make.signSpace}
 \alias{allpermutations}
@@ -39,6 +40,9 @@ t2p(T, obs.only = TRUE, tail)
 Livio Finos and Aldo Solari
 }
 
+\references{
+Pesarin (2001) Multivariate Permutation Tests with Applications in Biostatistics. Wiley, Mew York.
+}
 
 \seealso{
 \code{\link{flip}}

@@ -8,7 +8,7 @@ setClassUnion("arrayOrNULL", c("array", "NULL"))
 setClassUnion("data.frameOrNULL", c("data.frame", "NULL"))
 setClassUnion("numericOrmatrixOrcharacterOrNULL", c("numeric","matrix", "NULL","character"))
 
-#############da togliere per compilazione (esistno gia in someMTP
+#############da togliere per compilazione (esistno gia in someMTP)
 #setClassUnion("numericOrNULL", c("numeric", "NULL"))
 #setClassUnion("listOrNULL", c("list", "NULL"))
 
@@ -160,7 +160,6 @@ setMethod("[", "flip.object",
 	if(is.character(i) && !all(i %in% names(x))){ 
 		search=which(!(i %in% names(x)))
 		extended= lapply(i, function(ii) names(x)[if(ii %in% names(x)) ii else grep(ii, names(x))] )
-		
 		i=unlist(extended)
 	}
   if (all(i %in% names(x)) || 
@@ -171,7 +170,7 @@ setMethod("[", "flip.object",
     if (!is.null(x@permP)) x@permP <- x@permP[,i,drop=FALSE]
     if (!is.null(x@permT)) x@permT <- x@permT[,i,drop=FALSE]
     if (!is.null(x@permY)) x@permY <- x@permY[,,i,drop=FALSE]
-	if (!is.null(x@tail)) x@tail <- x@tail[min(length(x@tail),i)]
+	if (!is.null(x@tail)) x@tail <- x@tail[ifelse(length(as.vector(x@tail))==1,1,i)]
     #if (!is.null(x@weights)) x@weights <- x@weights[i]
     x
   } else {
@@ -221,6 +220,7 @@ setMethod("names<-", "flip.object",
 #==========================================================
 # A sort method for "flip.object"
 #==========================================================
+setGeneric("sort") 
 setMethod("sort", "flip.object",
   function(x, decreasing = FALSE ) {
       ix <- order(p.value(x), decreasing=decreasing)
@@ -324,8 +324,8 @@ setMethod("plot", "flip.object",
 	title("Bivariate Permutation Space") 
  } else { 
 	pc=prcomp(x@permT[,apply(x@permT,2,var)>0],scale. =TRUE,center=FALSE)
-	pc$rotation[1,]=pc$rotation[1,]*sign(pc$x[1,1]) 
-	pc$rotation[2,]=pc$rotation[2,]*sign(pc$x[1,2]) 
+	pc$rotation[,1]=pc$rotation[,1]*sign(pc$x[1,1]) 
+	pc$rotation[,2]=pc$rotation[,2]*sign(pc$x[1,2]) 
 	pc$x[,1]=pc$x[,1]*sign(pc$x[1,1])
 	pc$x[,2]=pc$x[,2]*sign(pc$x[1,2]) 
 	biplot(pc,xlabs=c("obs",rep("*",dim(pc$x)[1]-1)),

@@ -2,6 +2,8 @@ importFrom(graphics, hist, plot)
 
 importFrom(someMTP, p.adjust.w)
 
+importFrom(cherry, closed)
+
 importFrom(foreach,foreach)
 
 importFrom(stats, coefficients, fitted.values, residuals, weights, alias, 

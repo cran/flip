@@ -5,17 +5,22 @@
 The library is devoted to permutation-based inferential methods.
 }
 \description{
-The library is devoted to permutation-based inferential methods. Univariate and multivariate methods are developed.
+The library is devoted to Univariate and Multivariate permutation-based inferential methods.
+
+It allows for multivariate one sample, C>=2 samples and any regression tests. 
+Also the use of covariates (to be fitted in the model but) not under test is allowed.
+
+Permutation and Rotation method to get the null distribution of the test statistic(s) are available.
 }
 \details{
 \tabular{ll}{
 Package: \tab flip\cr
 Type: \tab Package\cr
-Version: \tab 1.0\cr
-Date: \tab 2011-06-20\cr
+Version: \tab 1.1\cr
+Date: \tab 2012-02-05\cr
 License: \tab GPL <=2\cr
 LazyLoad: \tab yes\cr
-Depends: \tab methods\cr
+Depends: \tab methods, foreach, e1071, someMTP, cherry\cr
 }
 }
 \author{
@@ -25,10 +30,11 @@ Maintainer: livio finos <livio@stat.unipd.it>
 }
 \references{
 Pesarin (2001) Multivariate Permutation Tests with Applications in Biostatistics. Wiley, Mew York.
+
+I widely borrowed the structure of \code{flip} from library \code{globaltest} of (http://www.bioconductor.org/packages/release/bioc/html/globaltest.html, Authors: J. Goeman and J. Oosting).
 }
 \keyword{ package }
-\seealso{
-}
+
 \examples{
 
 Y=data.frame(matrix(rnorm(50),10,5))

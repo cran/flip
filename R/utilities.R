@@ -1,3 +1,5 @@
+#####trace of a matrix
+.tr <- function(sigma) sum(diag(sigma))
 
 #################### widelly taken from gt{globaltest}
 .getXY <- function(Y,X,Z,data){
@@ -14,7 +16,7 @@
     data <- data.frame(data)
 
   # evaluate Y, which may be one of the colnames of data
-  Y <- eval(call$Y, data, parent.frame())
+  Y <- eval(Y, data, parent.frame())
 
   # settle Z, X and Y if Y is a formula
   if (missing(Z) || is.null(Z)) {
@@ -35,7 +37,13 @@
     name.Y <- deparse(call$Y) #serve sta roba?
   }
 
+  # keep NAs
+  old.na.action <- options()$na.action  
+  options(na.action="na.pass")
   Y =  .makeContrasts(~.,data=data.frame(Y),excludeRefCat=FALSE,excludeIntercept=TRUE)
+  # restore default
+  options(na.action = old.na.action)
+	
   # # remove redundant levels from factor Y
   # # and coerce Y to factor in case of levels input
   # if (is.factor(Y) || !is.null(levels))
@@ -51,13 +59,15 @@
 			X <- formula(terms(X,data=data)[!dup])
 	}
   }
-  n <- dim(Y)[1]
+  n <- nrow(Y)
   # get Z and X
   Z <- .getNull(Z, data, n)
   offset <- Z$offset   
   Z <- Z$Z
   Z <- Z[,apply(Z,2,function(x) !all(x==0)),drop=FALSE]
   #if(unique(Z[,"(Intercept)"])==0) 
+  
+  
   X <- .getAlternative(X, data, n)
   X <- X[, setdiff(colnames(X),colnames(Z)),drop=FALSE]
   
@@ -109,7 +119,7 @@
 ###TODO : sistemare la funzione .makeContrasts!!!!!! mi pare che non funzioni bene excludeRefCat , non funziona neppure con interazioni & excludeRefCat (non esclude l'interazione di riferimento!)
 .makeContrasts <- function(formu, data=data,excludeRefCat=TRUE,excludeIntercept=FALSE){ #excludeRefCat is used only for NOT ordered factors
     # make appropriate contrasts
-    mframe <- model.frame(formu, data=data)
+    mframe <- model.frame(formu, data=data,na.action = NULL)
 	if(length(mframe)>0){
 		factors <- names(mframe)[sapply(mframe, is.factor)]
 		contrs <- lapply(factors, function(fac) {
@@ -143,7 +153,7 @@
 		names(contrs) <- factors
 	}
     # make the design matrix
-    formu <- terms(formu, data=data)
+    formu <- terms(formu, data=data,na.action = NULL)
     # if (length(attr(formu, "term.labels")) == 0)
       # stop("empty formu")
     if(excludeIntercept) attr(formu, "intercept") <- 0 else attr(formu, "intercept") <- 1
@@ -153,7 +163,7 @@
 	# for(i in 1:length(ords)) ords[i]=is.ordered(data[,i])
 	# for(i in which(ords)) data[,i]=factor(data[,i],ordered=FALSE)
 	
-    formu <- model.matrix(formu, contrasts.arg=contrs, data=data)
+    formu <- model.matrix(formu, contrasts.arg=contrs, data=data,na.action = NULL)
 #	if(!all(colnames(formu) == "(Intercept)" ) ) { #if only the intercept is present
 	#	formu <- formu[,colnames(formu) != "(Intercept)",drop=FALSE]    # ugly, but I've found no other way
  #   }
@@ -163,7 +173,6 @@
 # Get the X design matrix
 ############################
 .getAlternative <- function(X, data, n) {
-
   # coerce X into a matrix
   if (is.data.frame(X) || is.vector(X)) {
     if (all(sapply(X, is.numeric))) {
@@ -181,9 +190,7 @@
     # keep NAs
     old.na.action <- options()$na.action  
     options(na.action="na.pass")
-
 	X=.makeContrasts(X,data=data)
-	
     # restore default
     options(na.action = old.na.action)
 	}
@@ -244,162 +251,7 @@
 ##############################################
 
 
-
-
-######## match the setting for permutation 
-.PermSpaceMatchInput <- function(perms) {
-if (!is.list(perms)) {
-		#the whole matrix of random permutaitons is provided
-		if (is.matrix(perms)) return(list(permID = perms, number=dim(perms)[1] ,seed=NA))		
-		#only the number of random permutaitons is provided
-		if (is.numeric(perms)) return(list(permID = NULL, number=perms ,seed=NA))
-		
-      } else return(perms)  #hopefully there are 3 elements, migliorare la funzione qui
-}	  
-
-
-
-############################
-# Calculates signs flips of a vector of N elements.
-# perms is the number of flips; if perms > number of all possible flips, then compute the complete space
-############################
-make.signSpace <- function(N,perms) {
-    perms=.PermSpaceMatchInput(perms)
-	if(is.null(perms$permID)){
-		if (2^(N-1) <= perms$number) {
-		    # all permutations if possible and if no stratas
-			#random <- FALSE
-			if(N>1){
-				require(e1071)
-				perms$permID <-cbind(0,bincombinations(N-1))
-				perms$permID [which(perms$permID ==0)] <- 1/N
-				perms$permID [which(perms$permID ==1)] <- -1/N
-			} else if(N==1) {
-				perms$permID <-rbind(1,-1)
-			}	else if(N==0) {
-				perms$permID <-matrix(0,2,0)
-			}
-				perms$seed=NA
-				perms$number=2^(N)
-		} else {
-			#otherwise random permutations
-			if (is.na(perms$seed)) perms$seed <- round(runif(1)*1000)         
-			set.seed(perms$seed)
-			perms$permID <- rbind(rep(1, N), matrix(1 - 2 * rbinom(N * perms$number,1, 0.5), perms$number, N))/N
-		}	
-	}
-	perms
-}
-
-############################
-# Calculates permutations space of a vector Y. 
-# perms is the number of permutations; if perms > number of all permutations, then compute the complete space
-############################
-make.permSpace <- function(Y,perms) {
-    perms=.PermSpaceMatchInput(perms)
-	if(is.null(perms$permID)){
-		allperms=npermutations(Y)
-		# all permutations if possible
-		if ( allperms <= perms$number) {
-			#random <- FALSE
-			perms$permID <- t(allpermutations(Y))
-			perms$seed=NaN
-			perms$number=allperms
-		} else {
-			# otherwise random permutations
-			if (is.na(perms$seed)) perms$seed <- round(runif(1)*1000)            
-			set.seed(perms$seed)
-			N <- length(Y)
-			perms$permID <- t(cbind(unlist(Y), replicate(perms$number, Y[sample(N)])))
-		}
-  }
-  perms
-}
-
-############################
-# Iterative function calculates all permutations of a vector
-# values: vector of all unique values
-# multiplicity: multiplicity of each value
-############################
-.allpermutations <- function(values, multiplicity) {
-
-  if (length(values)==1) {
-    out <- values
-  } else {
-    n <- sum(multiplicity)
-    out <- matrix(0 , n, .npermutations(multiplicity))
-    where <- 0
-    for (i in 1:length(values)) {
-      if (multiplicity[i] == 1) {
-        newmult <- multiplicity[-i]
-        newvals <- values[-i]
-      } else {
-        newmult <- multiplicity
-        newmult[i] <- newmult[i] - 1
-        newvals <- values
-      }
-      range <- where + seq_len(.npermutations(newmult))
-      where <- range[length(range)]
-      out[1,range] <- values[i]
-      out[2:n, range] <- .allpermutations(newvals, newmult)
-    }
-  }
-  out
-}
-
-############################
-# Iterative function counts all permutations of a vector
-# values: vector of all unique values
-# multiplicity: multiplicity of each value
-############################
-.npermutations <- function(multiplicity) {
-  round(exp(lfactorial(sum(multiplicity)) - sum(lfactorial(multiplicity))))
-}
-
-############################
-# Counts all permutations of a vector y
-# user-friendly version of .npermutations()
-############################
-npermutations <- function(Y) {
-  .npermutations(table(Y))
-}
-
-############################
-# Calculates all permutations of a vector y
-# user-friendly version of .allpermutations()
-############################
-allpermutations <- function(Y) {
-  values <- unique(Y)
-  multiplicity <- colSums(outer(Y, values, "=="))
-  .allpermutations(values, multiplicity)
-}
-
-
-##########
-#compute p-value space P from statistic space T (the percentile of the statistic T column-wise)
-t2p<-function(T,obs.only=TRUE,tail = 1){  
-    
-	if(!missing(tail))	T = .setTail(T,tail)
-	
-	if(!is.matrix(T)) {T<-as.matrix(T)}
-	if(obs.only) { 
-		P=matrix(apply(T,2,function(permy)mean(permy>=permy[1])),1,dim(T)[2])
-		rownames(P)="p-value"
-	}
-	else{
-		#oth<-seq(1:length(dim(T)))[-1]
-		B<-dim(T)[1]
-		P=apply(-T,2,rank,ties.method ="max")/B
-		P=as.matrix(P)
-		rownames(P)=c("p-obs",paste("p-*",1:(B-1),sep=""))
-	}
-	colnames(P)=colnames(T)
-	return(P)
-}
-
-
 #make "hight" (depending on the tail) values of the statistics to be significative
-
 .fitTail <- function(permT,tail){
 	if (missing(tail)||is.null(tail)) {
         tail = rep(0, dim(permT)[2])
@@ -428,14 +280,21 @@ t2p<-function(T,obs.only=TRUE,tail = 1){
 
 
 ###########################################################
-.orthoZ <- function(Y,X,Z){
+.orthoZ <- function(Y,X,Z){		
+	ZZ= try(solve(t(Z) %*% Z),silent=TRUE)
+	if(is(ZZ,"try-error")) return(list(Y=NA,X=NA))
     IP0 <- diag(dim(Z)[1]) - Z %*% solve(t(Z) %*% Z) %*% t(Z)
-	ei=eigen(IP0)
-	ei$vectors <- ei$vectors[,(ei$values > 1e-1)] #gli autovalori sono tutti 0 o 1
-	Y <- t(ei$vectors)%*%Y
-	X <- t(ei$vectors)%*%X
-	list(Y=Y,X=X)
-}
+	IP0 <- (IP0 + t(IP0))/2
+    ei=eigen(IP0)
+	if(any(is.complex(ei$values))) {
+		return(list(Y=NA,X=NA))
+	}
+        ei$vectors <- ei$vectors[,(ei$values > 1e-1)] #gli autovalori sono tutti 0 o 1
+        Y <- t(ei$vectors)%*%Y
+        X <- t(ei$vectors)%*%X
+        list(Y=Y,X=X)
+	}
+
 
 
 ################################# conservatively impute missing values in alternative
@@ -553,11 +412,15 @@ if(missing(weights)) {weights=NULL; many.weights=FALSE}
 
 
 ################### get results
-.getOut <- function(type="flip",permSpace,permP,permT, data,tail, call, flipReturn=flipReturn,separatedX=TRUE,comb.funct=NULL,nVar=NULL,tstat=list(t=NA),...){ 
+.getOut <- function(type="flip",permSpace,permT, data=NULL,tail=0, call=NULL, flipReturn=list(permT=TRUE),separatedX=TRUE,extraInfoPre=NULL,extraInfoPost=NULL,...){ 
 		
     # test statistic and std dev
 	stat=permT[1,]
-	stDev=apply(permT,2,sd)
+	stDev=apply(permT,2,sd,na.rm=TRUE)
+	pseudoZ=.t2stdt(permT)
+
+	p=t2p(permT,obs.only=TRUE,tail=tail)
+	
 	
 	if(type=="flip"){
 		if((missing(separatedX)) || separatedX){
@@ -569,25 +432,28 @@ if(missing(weights)) {weights=NULL; many.weights=FALSE}
 			dir[dir=="0"]="><"
 		} else {
 			dir=rep("F",dim(permT)[2])
+			tail[tail!=0]=0
 		}
 		
 		#build the results table
-		TAB=data.frame(Stat=as.vector(stat),Std.dev=as.vector(stDev), Z=as.vector(stat/stDev), ttttt=tstat, p=as.vector(permP),tail=as.vector(dir))
+		TAB=data.frame(T=as.vector(stat),sd.permT=as.vector(stDev), pseudoZ=as.vector(pseudoZ),tail=as.vector(dir), p=as.vector(p))
 		colnames(TAB)[colnames(TAB)=="p"]="p-value"
-		colnames(TAB)[grep("ttttt",colnames(TAB))]=names(tstat)
 		rownames(TAB)=colnames(permT)
 	} else if(type=="npc"){
 		#build the results table
-		TAB=data.frame(Stat=as.vector(stat),Std.dev=as.vector(stDev), Z=as.vector(stat/stDev), p=as.vector(permP),combFunct=comb.funct, nvar=nVar)
+		TAB=data.frame(T=as.vector(stat),sd.permT=as.vector(stDev), pseudoZ=as.vector(pseudoZ), p=as.vector(p))
 		colnames(TAB)[colnames(TAB)=="nvar"]="#Vars"
 		colnames(TAB)[colnames(TAB)=="p"]="p-value"
 		rownames(TAB)=colnames(permT)
 	}
 	
+	if((!is.null(extraInfoPre))) TAB=cbind(data.frame(extraInfoPre),TAB)
+	if((!is.null(extraInfoPost))) TAB=cbind(TAB,data.frame(extraInfoPost))
+	
 	out <- new("flip.object")  
 	out @res = TAB
 	out @nperms = permSpace[c("number")]
-	out @call = call
+	out @call = if(!is.null(call)) call
 	out @call$perms = permSpace[c("seed","number")]
 	out @permP=if(!is.null(flipReturn$permP))if(flipReturn$permP) t2p(permT, obs.only=FALSE,tail=tail)
 	out @permT=if(!is.null(flipReturn$permT))if(flipReturn$permT) permT
@@ -597,3 +463,32 @@ if(missing(weights)) {weights=NULL; many.weights=FALSE}
 		out @tail = as.matrix(tail)
 	out	
 }
+.getTNames <- function(Y,X=NULL){
+colnames(Y) = .getYNames(Y)
+colnames(X) = .getXNames(X)
+
+TNames=paste(
+rep(colnames(Y),rep(max(ncol(X),1),ncol(Y))),if((!is.null(X))&&(ncol(X)>1)) paste("_|_",colnames(X),sep="") else "" ,sep="")
+TNames
+}
+
+.getNames <- function(Y,prefix=".") {
+	if(!is.null(Y)) {if(!is.null(colnames(Y))) colnames(Y) else	paste(prefix,sep="",if(ncol(Y)>1)1:ncol(Y)) } else NULL
+}
+
+.getYNames <- function(Y) {
+	if(!is.null(Y)) {if(!is.null(colnames(Y))) colnames(Y) else	paste("Y",sep="",if(ncol(Y)>1)1:ncol(Y)) } else NULL
+}
+
+.getXNames <- function(X) {
+	if(!is.null(X)) {if(!is.null(colnames(X)))  colnames(X) else paste("X",sep="",if(ncol(X)>1)1:ncol(X)) } else NULL
+}
+
+.getTRowNames <- function(permT){
+c("Tobs", paste("T*",1:(nrow(permT)-1),sep=""))
+}
+.testedWithin <- function(data,testedWithin){
+		data$coeffWithin = data$coeffWithin[,testedWithin]
+		data$se = data$se[,testedWithin]
+		data$df.mod = data$df.mod[,testedWithin]
+		}
