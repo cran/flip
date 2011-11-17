@@ -5,9 +5,12 @@
 #setClassUnion("matrixOrNULL", c("matrix", "NULL"))
 setClassUnion("numericOrmatrixOrNULL", c("numeric","matrix", "NULL"))
 setClassUnion("arrayOrNULL", c("array", "NULL"))
-#setClassUnion("listOrNULL", c("list", "NULL"))
 setClassUnion("data.frameOrNULL", c("data.frame", "NULL"))
+setClassUnion("numericOrmatrixOrcharacterOrNULL", c("numeric","matrix", "NULL","character"))
+
+#############da togliere per compilazione (esistno gia in someMTP
 #setClassUnion("numericOrNULL", c("numeric", "NULL"))
+#setClassUnion("listOrNULL", c("list", "NULL"))
 
 
 setClass("flip.object", 
@@ -23,10 +26,10 @@ setClass("flip.object",
     #subsets = "listOrNULL",
     #structure = "listOrNULL",
     #weights = "listOrNULL",
-    tail = "numericOrmatrixOrNULL"
+    tail = "numericOrmatrixOrcharacterOrNULL",
     #Z = "matrixOrNULL",
     #directional = "logical",
-    #legend = "list",
+    data = "listOrNULL"
     #model = "character"
   ),
   prototype = list(
@@ -35,7 +38,8 @@ setClass("flip.object",
 	permP=NULL,
 	permT=NULL,
 	permSpace=NULL,
-	permY=NULL
+	permY=NULL,
+	data=NULL
   )
 )
 
@@ -166,9 +170,8 @@ setMethod("[", "flip.object",
     x@res <- x@res[i, ,drop=FALSE]
     if (!is.null(x@permP)) x@permP <- x@permP[,i,drop=FALSE]
     if (!is.null(x@permT)) x@permT <- x@permT[,i,drop=FALSE]
-    if (!is.null(x@permSpace)) x@permSpace <- x@permSpace[,i,drop=FALSE]
     if (!is.null(x@permY)) x@permY <- x@permY[,,i,drop=FALSE]
-	if (!is.null(x@tail)) x@tail <- x@tail[i]
+	if (!is.null(x@tail)) x@tail <- x@tail[min(length(x@tail),i)]
     #if (!is.null(x@weights)) x@weights <- x@weights[i]
     x
   } else {
@@ -325,18 +328,22 @@ setMethod("plot", "flip.object",
 	pc$rotation[2,]=pc$rotation[2,]*sign(pc$x[1,2]) 
 	pc$x[,1]=pc$x[,1]*sign(pc$x[1,1])
 	pc$x[,2]=pc$x[,2]*sign(pc$x[1,2]) 
-    lam <- pc$sdev[1:2] #* sqrt(dim(pc$x)[1])
-    #plot(pc$x[, 1:2]/lam)
-	pc$x[,1:2]=pc$x[,1:2] / lam
-	pc$rotation[,1:2]=pc$rotation[,1:2]*lam
-	plot(pc$x[,1],pc$x[,2],lwd=1,pty="o",xlim=range(pc$x[,1])*1.2,ylim=range(pc$x[,2])*1.2,
+	biplot(pc,xlabs=c("obs",rep("*",dim(pc$x)[1]-1)),
 	xlab=paste("PC1 (",round(pc$ sdev [1]^2 /sum(pc$ sdev ^2) *100,2)," %)",sep=""),
-	ylab=paste("PC2 (",round(pc$ sdev [2]^2 /sum(pc$ sdev ^2) *100,2)," %)",sep=""),col="gray",pch=21,bg="gray")
-	points(pc$x[1,1],pc$x[1,2],col="red",lwd=3,pch=21,bg="red")
-	text(pc$x[1,1]*1.1,pc$x[1,2]*1.1,col="red","Obs")
-	arrows( 0, 0, 2*pc$rotation[,1], 2*pc$rotation[,2], lwd=1,col="gray")
-	text(2.1*pc$rotation[,1], 2.1*pc$rotation[,2], rownames(pc$rotation), cex=1.5,col="black")
-	title("PCA of Permutation Space") 
+	ylab=paste("PC2 (",round(pc$ sdev [2]^2 /sum(pc$ sdev ^2) *100,2)," %)",sep=""),
+	main= "PCA of Permutation Space" )
+    # lam <- pc$sdev[1:2] #* sqrt(dim(pc$x)[1])
+    # #plot(pc$x[, 1:2]/lam)
+	# pc$x[,1:2]=pc$x[,1:2] / lam
+	# pc$rotation[,1:2]=pc$rotation[,1:2]*lam
+	# plot(pc$x[,1],pc$x[,2],lwd=1,pty="o",xlim=range(pc$x[,1])*1.2,ylim=range(pc$x[,2])*1.2,
+	# xlab=paste("PC1 (",round(pc$ sdev [1]^2 /sum(pc$ sdev ^2) *100,2)," %)",sep=""),
+	# ylab=paste("PC2 (",round(pc$ sdev [2]^2 /sum(pc$ sdev ^2) *100,2)," %)",sep=""),col="gray",pch=21,bg="gray")
+	# points(pc$x[1,1],pc$x[1,2],col="red",lwd=3,pch=21,bg="red")
+	# text(pc$x[1,1]*1.1,pc$x[1,2]*1.1,col="red","Obs")
+	# arrows( 0, 0, 2*pc$rotation[,1], 2*pc$rotation[,2], lwd=1,col="gray")
+	# text(2.1*pc$rotation[,1], 2.1*pc$rotation[,2], rownames(pc$rotation), cex=1.5,col="black")
+	# title("PCA of Permutation Space") 
 	}
   }
    plot.flip(x,y=NULL, main=main, xlab=xlab, ylab=ylab,...)

@@ -9,7 +9,7 @@ The main function for univariate tests under permutation framework
 
 }
 \usage{
-flip(Y, X, Z, data, tail = NULL, perms = 1000, ...)
+flip(Y, X=NULL, Z=NULL, data=NULL, tail = 0, perms = 1000, rotationTest = FALSE, ...)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -29,11 +29,13 @@ flip(Y, X, Z, data, tail = NULL, perms = 1000, ...)
     
 	\item{data}{Only used when \code{Y}, \code{X}, or \code{Z} is given in formula form. An optional data frame, list or environment containing the variables used in the formulae. If the variables in a formula are not found in \code{data}, the variables are taken from environment(formula), typically the environment from which \code{gt} is called.}
 
-  \item{tail}{ Vector of values -1, 0 or 1 indicating the tail to be used in the test for each column of \code{Y}. I the length of \code{tail} is smaller than number of coulmns of \code{Y}, the values are recycled.  }
+  \item{tail}{Vector of values -1, 0 or 1 indicating the tail to be used in the test for each column of \code{Y}. I the length of \code{tail} is smaller than number of coulmns of \code{Y}, the values are recycled.  }
 
 \item{perms}{The number of permutations to use. The default is \code{perms = 1000}. Alternatively it can be a matrix (i.e. the permutation space) or a list with elements \code{number} and \code{seed} }
+
+\item{rotationTest}{Logical value. If \code{TRUE} resampling is performed through random linear combinations (i.e. a rotation test is performed). This option is usefull when only few permutations are availables, that is, minimun reacheable significance is hight.}
     
-\item{\dots}{ further parameter such as (default is reported here) \code{permT.return = TRUE, permP.return = FALSE, permSpace.return = FALSE, permY.return = FALSE} 
+\item{\dots}{ Further parameter such as (default is reported here) \code{permT.return = TRUE, permP.return = FALSE, permSpace.return = FALSE, permY.return = FALSE} 
 }
 
 }
@@ -59,7 +61,8 @@ res = flip(Y+matrix(X*2,10,5),~X,~Z,data=data)
 res
 
 #testing symmetry of Y around 0
-res = flip(Y+2,~1,~0,data=data)
+Y[,1:2]=Y[,1:2] +2
+res = flip(Y)
 res
 plot(res)
 }

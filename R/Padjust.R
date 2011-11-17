@@ -1,48 +1,48 @@
 
-flip.adjust <- function (permSpace, method = "maxT", maxalpha=1, weights=NULL,...) {
+flip.adjust <- function (permTP, method = "maxT", maxalpha=1, weights=NULL,...) {
     
 	##TODO: here is case sensitive, while in npc it is not. here is so for compatibility with p.adjust. shall we change?
 	method <- match.arg(method,c(p.adjust.methods,"maxT","minP","maxTstd"))  
 	
 	##TODO: add some check for names(weights) compatibility. 
-	##TODO: exclude missing names (eg permSpace=permSpace[names(weights)]
-	if(!is.null(weights)) if(is.null(names(weights))) names(weights)<- colnames(permSpace)
+	##TODO: exclude missing names (eg permTP=permTP[names(weights)]
+	if(!is.null(weights)) if(is.null(names(weights))) names(weights)<- colnames(permTP)
 	
-	if(is(permSpace,"flip.object")){
+	if(is(permTP,"flip.object")){
 		if((method%in%p.adjust.methods) & (is.null(weights))){ 
 			#run the standard function
-			adjs=p.adjust(p.value(permSpace), method = method)
+			adjs=p.adjust(p.value(permTP), method = method)
 		} else if((method%in%p.adjust.methods) & (!is.null(weights))){
 			#standard function but weigthed
-			adjs=p.adjust.w(p.value(permSpace), method = method, w=weights)
-		} else{		#perform permutation specific procedures
+			adjs=p.adjust.w(p.value(permTP), method = method, w=weights)
+		} else {		#perform permutation specific procedures
 			if(method=="minP") {
-				adjs=.maxt.adjust(if(is.null(permSpace@permP)) -t2p(permSpace@permT,obs.only=FALSE) else -permSpace@permP, method = method, maxalpha,weights=weights)
+				adjs=.maxt.adjust(if(is.null(permTP@permP)) -t2p(permTP@permT,obs.only=FALSE) else -permTP@permP, method = method, maxalpha,weights=weights)
 			} else if(method=="maxTstd") { 
-				adjs=.maxt.adjust(scale(permSpace@permT), method = method, maxalpha,weights=weights)
+				adjs=.maxt.adjust(scale(permTP@permT), method = method, maxalpha,weights=weights)
 			} else {
-				adjs=.maxt.adjust(permSpace@permT, method = method, maxalpha,weights=weights)
+				adjs=.maxt.adjust(permTP@permT, method = method, maxalpha,weights=weights)
 			}
 		}
 		#fit it to the flip-object
-		permSpace@res=cbind(permSpace@res,adjs)
-		colnames(permSpace@res)[length(colnames(permSpace@res))]=paste("Adjust:",method,sep="")	
+		permTP@res=cbind(permTP@res,adjs)
+		colnames(permTP@res)[length(colnames(permTP@res))]=paste("Adjust:",method,sep="")	
 	
-		return(permSpace)
+		return(permTP)
 			
 	} else { # not a flip.object, return a vector
 		if((method%in%p.adjust.methods) & (is.null(weights))){ 
-			return(p.adjust(permSpace, method = method))
+			return(p.adjust(permTP, method = method))
 		} else if((method%in%p.adjust.methods) & (!is.null(weights))){
 			#standard function but weigthed
-			return(p.adjust.w(permSpace, method = method, w=weights))
+			return(p.adjust.w(permTP, method = method, w=weights))
 		} else{		#perform permutation specific procedures
 			if(method=="minP") {
-				return(.maxt.adjust(-permSpace, method = method, maxalpha,weights=weights))
+				return(.maxt.adjust(-permTP, method = method, maxalpha,weights=weights))
 			} else if(method=="maxTstd") { 
-				return(.maxt.adjust(scale(permSpace), method = method, maxalpha,weights=weights))
+				return(.maxt.adjust(scale(permTP), method = method, maxalpha,weights=weights))
 			} else {
-				return(.maxt.adjust(permSpace, method = method, maxalpha,weights=weights))
+				return(.maxt.adjust(permTP, method = method, maxalpha,weights=weights))
 			}
 			
 		}

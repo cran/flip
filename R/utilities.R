@@ -56,6 +56,7 @@
   Z <- .getNull(Z, data, n)
   offset <- Z$offset   
   Z <- Z$Z
+  Z <- Z[,apply(Z,2,function(x) !all(x==0)),drop=FALSE]
   #if(unique(Z[,"(Intercept)"])==0) 
   X <- .getAlternative(X, data, n)
   X <- X[, setdiff(colnames(X),colnames(Z)),drop=FALSE]
@@ -192,7 +193,7 @@
   }
   # if (is.null(colnames(X)))
     # stop("colnames missing in X design matrix")
-
+  if(is.null(colnames(X))) colnames(X)=paste("X",1:dim(X)[2],sep="")
   X
 }
 
@@ -237,7 +238,6 @@
   if (nrow(Z) != n) {
     stop("the length of \"Y\" (",n, ") does not match the row count of \"Z\" (", nrow(Z), ")")
   }
-
   list(Z = Z, offset = offset)
 }
 
@@ -249,10 +249,11 @@
 ######## match the setting for permutation 
 .PermSpaceMatchInput <- function(perms) {
 if (!is.list(perms)) {
-		#only the number of random permutaitons is provided
-		if (is.numeric(perms)) return(list(permID = NULL, number=perms ,seed=NA))
 		#the whole matrix of random permutaitons is provided
 		if (is.matrix(perms)) return(list(permID = perms, number=dim(perms)[1] ,seed=NA))		
+		#only the number of random permutaitons is provided
+		if (is.numeric(perms)) return(list(permID = NULL, number=perms ,seed=NA))
+		
       } else return(perms)  #hopefully there are 3 elements, migliorare la funzione qui
 }	  
 
@@ -268,12 +269,18 @@ make.signSpace <- function(N,perms) {
 		if (2^(N-1) <= perms$number) {
 		    # all permutations if possible and if no stratas
 			#random <- FALSE
-			library(e1071)
-			perms$permID <-cbind(0,bincombinations(N-1))
-			perms$permID [which(perms$permID ==0)] <- 1/N
-			perms$permID [which(perms$permID ==1)] <- -1/N
-			perms$seed=NA
-			perms$number=2^(N)
+			if(N>1){
+				require(e1071)
+				perms$permID <-cbind(0,bincombinations(N-1))
+				perms$permID [which(perms$permID ==0)] <- 1/N
+				perms$permID [which(perms$permID ==1)] <- -1/N
+			} else if(N==1) {
+				perms$permID <-rbind(1,-1)
+			}	else if(N==0) {
+				perms$permID <-matrix(0,2,0)
+			}
+				perms$seed=NA
+				perms$number=2^(N)
 		} else {
 			#otherwise random permutations
 			if (is.na(perms$seed)) perms$seed <- round(runif(1)*1000)         
@@ -370,7 +377,7 @@ allpermutations <- function(Y) {
 
 ##########
 #compute p-value space P from statistic space T (the percentile of the statistic T column-wise)
-t2p<-function(T,obs.only=TRUE,tail){  
+t2p<-function(T,obs.only=TRUE,tail = 1){  
     
 	if(!missing(tail))	T = .setTail(T,tail)
 	
@@ -392,11 +399,17 @@ t2p<-function(T,obs.only=TRUE,tail){
 
 
 #make "hight" (depending on the tail) values of the statistics to be significative
-.setTail <- function(permT, tail){
-    if (missing(tail)||is.null(tail)) {
+
+.fitTail <- function(permT,tail){
+	if (missing(tail)||is.null(tail)) {
         tail = rep(0, dim(permT)[2])
     }     else if (length(tail) != dim(permT)[2]) 
-        tail <- rep(tail[1], dim(permT)[2])
+        tail <- rep(tail,len = dim(permT)[2])
+	tail
+}
+
+.setTail <- function(permT, tail){
+    .fitTail(permT,tail)
 		
     permT[, tail < 0] <- -permT[, tail < 0]
     permT[, tail == 0] <- abs(permT[, tail == 0])
@@ -536,4 +549,51 @@ if(missing(weights)) {weights=NULL; many.weights=FALSE}
   }
   
   return(list(one.weight=one.weight,many.subsets=many.subsets, many.weights=many.weights, subsets=subsets, weights=weights))
+}
+
+
+################### get results
+.getOut <- function(type="flip",permSpace,permP,permT, data,tail, call, flipReturn=flipReturn,separatedX=TRUE,comb.funct=NULL,nVar=NULL,tstat=list(t=NA),...){ 
+		
+    # test statistic and std dev
+	stat=permT[1,]
+	stDev=apply(permT,2,sd)
+	
+	if(type=="flip"){
+		if((missing(separatedX)) || separatedX){
+			# tails of the test
+			dir=as.character(sign(c(1,-1)%*%.setTail(matrix(c(1,-1),2,dim(permT)[2]),tail)))
+			stat[dir=="-1"]=-stat[dir=="-1"]
+			dir[dir=="1"]=">"
+			dir[dir=="-1"]="<"
+			dir[dir=="0"]="><"
+		} else {
+			dir=rep("F",dim(permT)[2])
+		}
+		
+		#build the results table
+		TAB=data.frame(Stat=as.vector(stat),Std.dev=as.vector(stDev), Z=as.vector(stat/stDev), ttttt=tstat, p=as.vector(permP),tail=as.vector(dir))
+		colnames(TAB)[colnames(TAB)=="p"]="p-value"
+		colnames(TAB)[grep("ttttt",colnames(TAB))]=names(tstat)
+		rownames(TAB)=colnames(permT)
+	} else if(type=="npc"){
+		#build the results table
+		TAB=data.frame(Stat=as.vector(stat),Std.dev=as.vector(stDev), Z=as.vector(stat/stDev), p=as.vector(permP),combFunct=comb.funct, nvar=nVar)
+		colnames(TAB)[colnames(TAB)=="nvar"]="#Vars"
+		colnames(TAB)[colnames(TAB)=="p"]="p-value"
+		rownames(TAB)=colnames(permT)
+	}
+	
+	out <- new("flip.object")  
+	out @res = TAB
+	out @nperms = permSpace[c("number")]
+	out @call = call
+	out @call$perms = permSpace[c("seed","number")]
+	out @permP=if(!is.null(flipReturn$permP))if(flipReturn$permP) t2p(permT, obs.only=FALSE,tail=tail)
+	out @permT=if(!is.null(flipReturn$permT))if(flipReturn$permT) permT
+	out @permSpace=if(!is.null(flipReturn$permSpace))if(flipReturn$permSpace) permSpace$permID
+	out @data = if(!is.null(flipReturn$data))if(flipReturn$data) data
+	if(!is.null(tail)) 
+		out @tail = as.matrix(tail)
+	out	
 }

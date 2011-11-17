@@ -2,7 +2,7 @@
 
 ############################
 
-npc <- function(permSpace, comb.funct = c("Fisher", "Liptak", "minP", "maxT", "sumT", "sumT2"),permP.return=FALSE,permT.return=TRUE,subsets=NULL,weights=NULL){
+npc <- function(permTP, comb.funct = c("Fisher", "Liptak", "minP", "maxT", "sumT", "sumT2"),subsets=NULL,weights=NULL,...){
 	
 	### just in analogy with gt(). to be implemented as flip-options
 	trace=TRUE
@@ -12,29 +12,29 @@ npc <- function(permSpace, comb.funct = c("Fisher", "Liptak", "minP", "maxT", "s
 	if(comb.funct == "tippett") comb.funct ="minp"
 	if(comb.funct == "direct") comb.funct ="sumt"
 	
-	if(is(permSpace,"flip.object")){
-		nperms = permSpace@call$perms
+	if(is(permTP,"flip.object")){
+		nperms = permTP@call$perms
 		if(comb.funct %in% c("fisher", "liptak", "minp")) {
-			if(!is.null(permSpace@permP)){ 
-				permSpace=permSpace@permP			
+			if(!is.null(permTP@permP)){ 
+				permTP=permTP@permP			
 			} else { 
-				if(!is.null(permSpace@permT)) permSpace=t2p(permSpace@permT,obs.only=FALSE)
+				if(!is.null(permTP@permT)) { permTP=t2p(permTP@permT,obs.only=FALSE,tail=permTP@tail)}
 			} 
-		} else if(comb.funct %in% c("maxt", "sumt", "sumt2")) permSpace=permSpace@permT
+		} else if(comb.funct %in% c("maxt", "sumt", "sumt2")) {permTP=.setTail(permTP@permT,tail=.fitTail(permTP@permT,permTP@tail) ) }
 	}
 	
-	if(!is.matrix(permSpace)) permSpace=as.matrix(permSpace)
-	if(!exists("nperm"))  nperms = list(number=dim(permSpace)[1],seed=NA)
+	if(!is.matrix(permTP)) permTP=as.matrix(permTP)
+	if(!exists("nperm"))  nperms = list(number=dim(permTP)[1],seed=NA)
 	
-	if(comb.funct=="fisher"){permSpace = -log(permSpace)}
-	if(comb.funct=="liptak"){permSpace = -qnorm(permSpace)}
-	if(comb.funct=="minp"){permSpace = 1/permSpace}
-	if(comb.funct=="sumt2"){permSpace = permSpace^2}
+	if(comb.funct=="fisher"){permTP = -log(permTP)}
+	if(comb.funct=="liptak"){permTP = -qnorm(permTP)}
+	if(comb.funct=="minp"){permTP = 1/permTP}
+	if(comb.funct=="sumt2"){permTP = permTP^2}
 	
 	
 	
 	############
-	temp=.getSubsetWeights(weights,subsets,colnames(permSpace))
+	temp=.getSubsetWeights(weights,subsets,colnames(permTP))
 	weights=temp$weights
 	subsets=temp$subsets
 	many.weights=temp$many.weights
@@ -56,29 +56,29 @@ npc <- function(permSpace, comb.funct = c("Fisher", "Liptak", "minP", "maxT", "s
   
   # weight
     if (one.weight) {
-      if (length(weights) != ncol(permSpace)) 
-        stop("length of \"weights\" does not match column count of \"permSpace\"")
+      if (length(weights) != ncol(permTP)) 
+        stop("length of \"weights\" does not match column count of \"permTP\"")
       all.weights <- weights
     } else
-      all.weights <- rep(1, ncol(permSpace))
-	  names(all.weights) = colnames(permSpace)
+      all.weights <- rep(1, ncol(permTP))
+	  names(all.weights) = colnames(permTP)
   
   
   
 	if(comb.funct %in% c("fisher", "liptak", "sumt", "sumt2")){
 		  test= function(subset=NULL,weights=NULL){ 
-		  permT = matrix(if(is.null(subset)) permSpace%*%all.weights else permSpace[,subset,drop=FALSE]%*%all.weights[subset]) ;permT}
+		  permT = matrix(if(is.null(subset)) permTP%*%all.weights else permTP[,subset,drop=FALSE]%*%all.weights[subset]) ;permT}
 	} else 	if(comb.funct %in% c("minp", "maxt"))
 		   test= function(subset=NULL,weights=NULL){ #browser()
-		   permT = matrix(apply(if(is.null(subset)) t(all.weights*t(permSpace)) else 
-		   t(all.weights[subset]*t(permSpace[,subset,drop=FALSE])) , 1, max))  ;permT}
+		   permT = matrix(apply(if(is.null(subset)) t(all.weights*t(permTP)) else 
+		   t(all.weights[subset]*t(permTP[,subset,drop=FALSE])) , 1, max))  ;permT}
 
 	
 	
 	# Do the test
   if ((!many.subsets) && (!many.weights)) {           # single weighting; single subset
     permT <- test()
-	nVar=dim(permSpace)[2]
+	nVar=dim(permTP)[2]
   } else {     
     L <- if (many.subsets) length(subsets) else length(weights)                 
     permT <- sapply(1:L, function (i) { 
@@ -112,23 +112,12 @@ npc <- function(permSpace, comb.funct = c("Fisher", "Liptak", "minP", "maxT", "s
 #makeFlipObject <- function(){
 	# get p-values
 	p=t2p(permT,obs.only=TRUE)
-	# test statistic and std dev
-	stat=permT[1,]
-	stDev=apply(permT,2,sd)
-	
-	#build the results table
-	res=data.frame(Stat=as.vector(stat),Std.dev=as.vector(stDev), Z=as.vector(stat/stDev), p=as.vector(p),combFunct=comb.funct, nvar=nVar)
-	colnames(res)[colnames(res)=="nvar"]="#Vars"
-	colnames(res)[colnames(res)=="p"]="p-value"
-	rownames(res)=colnames(permT)
 
-	out <- new("flip.object")  
-    out @res = res
-	out @nperms = nperms
-	out @call = match.call()
-	out @permP=if(permP.return) t2p(permT, obs.only=FALSE)
-	out @permT=if(permT.return) permT
-#	out
-#}
+	#build the flip-object
+	  if(!exists("flipReturn") || is.null(flipReturn)) 
+			flipReturn=list(permT=TRUE,permP=FALSE)
+  
+	out=.getOut(type="npc",permSpace=NULL,permP=p,permT=permT, data=list(),tail=NULL, call=match.call(), flipReturn=flipReturn,comb.funct=comb.funct,nVar=nVar)
+	
 	return(out)
 }
