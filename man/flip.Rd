@@ -1,5 +1,7 @@
 \name{flip}
 \alias{flip}
+\alias{flip.statTest}
+
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{
 The main function for univariate tests under permutation framework
@@ -10,7 +12,13 @@ The general function for permutation (or rotation) test.
 It allows for multivariate one sample, C>=2 samples and any regression tests. Also the use of covariates (to be fitted in the model but) not under test is allowed.
 }
 \usage{
-flip(Y, X=NULL, Z=NULL, data=NULL, tail = 0, perms = 1000, flipReturn, rotationTest = FALSE, ...)
+flip(Y, X=NULL, Z=NULL, data=NULL, tail = 0, perms = 1000, statTest=NULL, Strata=NULL, flipReturn, testType=c("permutation","rotation"), ...)
+
+flip.statTest
+#    c("t", "F", "ANOVA",
+#	"Wilcoxon","Kruskal-Wallis", "kruskal", "rank", "Mann-Whitney","Sign", 
+#	"chisq", "Fisher",
+#	"McNemar","sum")
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -26,26 +34,59 @@ flip(Y, X=NULL, Z=NULL, data=NULL, tail = 0, perms = 1000, flipReturn, rotationT
       \code{\link[stats:formula]{formula}} object (e.g. \code{~a+b}). In
       that case the intercept is always suppressed.}
     \item{Z}{The part of the design matrix corresponding to the null hypothesis. May be given as a design matrix or as a half \code{\link[stats:formula]{formula}} object (e.g. \code{~a+b}). The default for \code{Z} is \code{~1}, i.e. only an intercept. This intercept may be suppressed, if desired, with \code{Z = ~0}.}    
-	\item{data}{Only used when \code{Y}, \code{X}, or \code{Z} is given in formula form. An optional data frame, list or environment containing the variables used in the formulae. If the variables in a formula are not found in \code{data}, the variables are taken from environment(formula), typically the environment from which \code{gt} is called.}
-  \item{tail}{Vector of values -1, 0 or 1 indicating the tail to be used in the test for each column of \code{Y}. I the length of \code{tail} is smaller than number of coulmns of \code{Y}, the values are recycled.  }
-\item{perms}{The number of permutations to use. The default is \code{perms = 1000}. Alternatively it can be a matrix (i.e. the permutation space) or a list with elements \code{number} and \code{seed} }
+	\item{data}{Only used when \code{Y}, \code{X}, or \code{Z} is given in formula form. An optional data frame, list or environment containing the variables used in the formula. If the variables in a formula are not found in \code{data}, the variables are taken from environment(formula), typically the environment from which \code{gt} is called.}
+  \item{tail}{Vector of values -1, 0 or 1 indicating the tail to be used in the test for each column of \code{Y}. I the length of \code{tail} is smaller than number of columns of \code{Y}, the values are recycled.  }
+\item{perms}{The number of permutations to use. The default is \code{perms = 1000}. Alternatively it can be a matrix (i.e. the permutation space) or a list with elements \code{number} and \code{seed}.}
+\item{Strata}{A vector, which unique values identifies strata. This option is used only with \code{testType="permutation"};
+parameter \code{Z} is not considered in this case. 
+ Also note that when only two levels with one observation per each level are present in each stratum, the problem becomes a paired two-samples problem and hence simplified to a one-sample test.
+}
+\item{statTest}{
+Choose among: \code{"t",} (default) \code{"F", "ANOVA", "Wilcoxon","Kruskal-Wallis","Sign","chisq","chisq.sparated", "Fisher", "mcnemar","sum"}. See also Details section.
+}
 \item{flipReturn}{list of objects indicating what will be included in the output. e.g. \code{list(permP=TRUE,permT=TRUE,data=TRUE)}.}
-\item{rotationTest}{Logical value. If \code{TRUE} resampling is performed through random linear combinations (i.e. a rotation test is performed). This option is usefull when only few permutations are availables, that is, minimun reacheable significance is hight.}
-\item{\dots}{ Further parameter such as (default is reported here) \code{permT.return = TRUE, permP.return = FALSE, permSpace.return = FALSE, permY.return = FALSE} }
+\item{testType}{
+by default \code{testType="permutation"},
+\code{rotationTest}: (deprecated, use \code{testType="rotation"}) Logical. If \code{TRUE} resampling is performed through random linear combinations (i.e. a rotation test is performed). This option is usefull when only few permutations are available, that is, minimum reachable significance is hight.}
+\item{\dots}{Further parameter such as (default is reported here) \code{permT.return = TRUE, permP.return = FALSE, permSpace.return = FALSE, permY.return = FALSE} }
 }
 \details{
-%%  ~~ If necessary, more details than the description above ~~
+
+\code{statTest="t"} use the t statistic derived from the correlation among the X and the Y. Therefore for multiple Xs, can be slight different from the t test of parametric linear models (the fitted model does not consider the other covariates). The test are valid only under the null hypothesis that all Xs are independent of the single Y. To get adequate test use use \code{Z}.
+The test statistic \code{"sum"} is the sum  of values (or frequencies) of the given sample 
+centered on the expected (i.e. computed on the overall sample).
+It performs all possible comparisons among values of \code{X} and \code{Y} (i.e. it does not produce only one test. p-values can be combined using \code{npc}).
+
+\code{"ANOVA"} is synonyms of \code{"F"}. Only valid for dependence tests (i.e. non constant \code{X}). 
+\code{"Mann-Whitney"} is synonyms of \code{"Wilcoxon"}. 
+\code{"rank"} choose among \code{"Wilcoxon"} and \code{"Kruskal-Wallis"} depending if the samples are two or more (respectively).
+
+The \code{"Wilcoxon"} statistic is based on the 'sum of ranks of second sample minus n1*(n+1)/2' instead of
+'sum of ranks of smallest sample minus nSmallest*(n+1)/2'. Therefore the statistic is centered on 0 and allow for two sided alternatives.
+Despite the p-value are ok, it requires the \code{X} to be a two-levels factor in order to compute the right test statistic.
+When the \code{X} is not a two-levels factor, it measures the codeviance among \code{X} and ranks of \code{Y}.
+
+For paired samples (see also the argument \code{Strata} and the example below) the Signed Rank test is performed.
+To perform the Sign Test use option \code{Sign} (i.e. same as Signed Rank but without using magnitude of ranks).
+
+
+The \code{"Fisher"} test is allowed only with dichotomous \code{Y}s. The reported statistic is the bottom-right cell of the 2 by 2 frequencies table.
+The \code{"chisq.separated"} test perform cell-wise chi squared (see also Finos and Salmaso (2004) Communications in Statistics - Theory and methods).
+
+
+The \code{"McNemar"} test is based on the signs of the differences, hence it can be used also with ordinal or continuous responses. Only valid for symmetry tests (i.e. \code{X} is constant or \code{NULL}). 
+The reported statistic for \code{"McNemar"} test is the signed squared root of the McNemar statistic. Hence it allows for tailed alternatives.
+
+
+For ordered \code{X}, a stochastic ordering test can be performed using \code{"t","Wilcoxon","sum"} and then combining the separated test using \code{npc}.
+
 }
-\note{If \code{null} is supplied as a \code{\link[stats:formula]{formula}} object, an intercept is automatically included. As a consequence \code{gt(Y, X, Z)} will usually give a different result from \code{gt(Y, X, ~Z)}. The first call is equivalent to \code{gt(Y, X, ~0+Z)}, whereas the second call is equivalent to \code{gt(Y, X, cbind(1,Z))}.
 
-P-values from the asymptotic distribution are accurate to at least two decimal places up to a value of around \code{1e-12}. Lower p-values are numerically less reliable.
 
-Missing values in the \code{Y} matrix are are dealed with approximate solution proposed by Pesarin (2001) or by weighted regression assuming with (almost) infinite variance for missing values.
-Missing values in the \code{X} matrix are imputed conservatively (i.e. under the null hypothesis).}
 \value{The function returns an object of class \code{flip.object}. 
 Several operations and plots can be made from this object. See also \code{\link{flip.object-class}}.}
 \author{
-livio finos livioATstatDOTunipdDOTit
+livio finos (livioATstatDOTunipdDOTit)
 }
 
 \references{
@@ -63,20 +104,42 @@ Multiplicity correction and Overall test: \code{\link{npc}}.
 }
 
 \examples{
-Y=data.frame(matrix(rnorm(50),10,5))
-names(Y)=LETTERS[1:5]
-Y[,1:2]=Y[,1:2]+1.5
 X=rep(0:1,5)
-data=data.frame(X=X, Z=rnorm(10))
-#testing dependence among Y and x
-res = flip(Y+matrix(X*2,10,5),~X,~Z,data=data)
+
+Y=data.frame(matrix(rnorm(50),10,5))
+Y=Y+matrix(X*2,10,5)
+names(Y)=LETTERS[1:5]
+
+data=data.frame(Y,X=X, Z=rnorm(10))
+#testing dependence among Y's and X
+res = flip(Y,~X,data=data)
 res
+#same as:
+res = flip(A+B+C+D+E~X,data=data)
+
+#testing dependence among Y's and X also using covariates
+res = flip(Y,~X,~Z,data=data)
+res
+
+#Using rank tests:
+res = flip(Y,~X,data=data,statTest="Wilcoxon")
+res
+
 
 #testing symmetry of Y around 0
 Y[,1:2]=Y[,1:2] +2
 res = flip(Y)
 res
 plot(res)
+
+
+#use of strata (in this case equal to paired samples)
+data$S=rep(1:5,rep(2,5))
+#paired t
+flip(A+B+C+D+E~X,data=data,statTest="t",Strata=~S)
+#signed Rank test
+flip(A+B+C+D+E~X,data=data,statTest="Wilcox",Strata=~S)
+
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.

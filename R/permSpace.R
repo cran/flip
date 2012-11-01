@@ -1,13 +1,14 @@
-
+utils::globalVariables(c("testType", "statTest","i","stratum","permSpace"))
+#out <- sys.frame(sys.nframe())
 ######## match the setting for permutation 
 .PermSpaceMatchInput <- function(perms) {
 if (!is.list(perms)) {
 		#the whole matrix of random permutaitons is provided
-		if (is.matrix(perms)) return(list(permID = perms, number=dim(perms)[1] ,seed=NA))		
+		if (is.matrix(perms)) return(list(permID = perms, B=nrow(perms) , n= ncol(perms), seed=NA))		
 		#only the number of random permutaitons is provided
-		if (is.numeric(perms)) return(list(permID = NULL, number=perms ,seed=NA))
+		if (is.numeric(perms)) return(list(permID = NULL, B=perms ,seed=NA))
 		
-      } else return(perms)  #hopefully there are 3 elements, migliorare la funzione qui
+      } else return(perms)  #hopefully there are all elements, migliorare la funzione qui
 }	  
 
 
@@ -18,29 +19,32 @@ if (!is.list(perms)) {
 ############################
 make.signSpace <- function(N,perms) {
     perms=.PermSpaceMatchInput(perms)
+	perms$n=N
 	if(is.null(perms$permID)){
-		if (2^(N-1) <= perms$number) {
+		if (2^(N-1) <= perms$B) {
 		    # all permutations if possible and if no stratas
 			#random <- FALSE
+			require(e1071)
 			if(N>1){
-				require(e1071)
 				perms$permID <-cbind(0,bincombinations(N-1))
-				perms$permID [which(perms$permID ==0)] <- 1/N
-				perms$permID [which(perms$permID ==1)] <- -1/N
-			} else if(N==1) {
-				perms$permID <-rbind(1,-1)
-			}	else if(N==0) {
-				perms$permID <-matrix(0,2,0)
-			}
+				perms$permID= perms$permID[-1,]
+				perms$permID [which(perms$permID ==1)] <- -1
+				perms$permID [which(perms$permID ==0)] <- 1
+			} else {
+				print("The function needs N>1")
+				return()
+				}
 				perms$seed=NA
-				perms$number=2^(N)
+				perms$B=(2^(N)-1)
+				if(is.null(perms$rotFunct)) perms$rotFunct <- function(i) (permSpace$permID[i,]*data$Y)
 		} else {
 			#otherwise random permutations
-			if (is.na(perms$seed)) perms$seed <- round(runif(1)*1000)
-			set.seed(perms$seed)
-			perms$permID <- rbind(rep(1, N), matrix(1 - 2 * rbinom(N * (perms$number%/%2),1, 0.5), (perms$number%/%2), N))/N
+			#if (is.na(perms$seed)) perms$seed <- round(runif(1)*1000)
+			if (!is.na(perms$seed)) set.seed(perms$seed)
+			perms$permID <- matrix(1 - 2 * rbinom(N * (perms$B%/%2),1, 0.5), (perms$B%/%2), N)
+			if(is.null(perms$rotFunct)) perms$rotFunct <- function(i) (permSpace$permID[i,]*data$Y)
 		}	
-	}
+	} else if(is.null(perms$rotFunct)) perms$rotFunct <- function(i) (permSpace$permID[i,]*data$Y)
 	perms
 }
 
@@ -48,53 +52,122 @@ make.signSpace <- function(N,perms) {
 # Calculates permutations space of a vector Y. 
 # perms is the number of permutations; if perms > number of all permutations, then compute the complete space
 ############################
-make.permSpace <- function(Y,perms) {
-    perms=.PermSpaceMatchInput(perms)
-	if(is.null(perms$permID)){
-		allperms=npermutations(Y)
-		# all permutations if possible
-		if ( allperms <= perms$number) {
-			#random <- FALSE
-			perms$permID <- t(allpermutations(Y))
-			perms$seed=NaN
-			perms$number=allperms
-		} else {
-			# otherwise random permutations
-			if (is.na(perms$seed)) perms$seed <- round(runif(1)*1000)            
-			set.seed(perms$seed)
-			N <- length(Y)
-			perms$permID <- t(cbind(unlist(Y), replicate(perms$number, Y[sample(N)])))
-		}
+make.permSpace <- function(IDs,perms,return.permIDs=FALSE,testType="permutation",Strata=NULL) {
+	
+	if(tolower(testType)=="rotation") {
+		perms=.make.RotSpace(IDs,perms)
+		perms$type="rotation"
+	} else if(tolower(testType)=="simulation") {
+		perms=.make.SimSpace(IDs,perms)
+		perms$type="simulation"
+	} else 	{ ## then standard permutations
+		perms=.make.PermSpace(IDs,perms,return.permIDs=return.permIDs,Strata=Strata)
+		perms$type="permutation"
   }
+  if(!is.na(perms$seed)) set.seed(perms$seed)
+  environment(perms$rotFunct) <- sys.frame(sys.parent())
   perms
 }
+
+##########################
+##make random permutations of indices
+##########################
+.make.PermSpace <- function(IDs,perms,return.permIDs=FALSE,Strata=NULL,forceRandom=FALSE){
+     if(length(IDs)==1) IDs=1:IDs
+	if(is.null(Strata)){
+		## if not a permSpace
+			if(!is.list(perms)){
+				perms=.PermSpaceMatchInput(perms)
+				perms$n=length(IDs)
+				allperms=npermutations(IDs)
+				# all permutations if possible
+				if ( ( allperms <= perms$B) && (!forceRandom)) {
+					#random <- FALSE
+					perms$permID <- t(allpermutations(IDs))[-1,]
+					perms$seed=NA
+					perms$B=(allperms-1)
+					perms$rotFunct <- function(i) (data$Y[perms$permID[i,],,drop=FALSE])
+				} else {
+					# otherwise random permutations
+					# if (is.na(perms$seed))
+						# perms$seed <- round(runif(1)*1000)
+					# set.seed(perms$seed)
+					if (!is.na(perms$seed))	set.seed(perms$seed)
+					
+					if(!return.permIDs) {
+						perms$rotFunct <- function(i) (data$Y[sample(perms$n),,drop=FALSE])
+					} else {
+						perms$permID <- t(replicate(perms$B, IDs[sample(perms$n)]))
+						perms$rotFunct <- function(i) (data$Y[perms$permID[i,],,drop=FALSE])
+						}
+				}
+		  }
+		perms
+	} else #Strata are present
+	{	
+		strataSz=cumsum(table(Strata))
+		strataLable= unique(Strata)
+		space=.make.PermSpace(IDs=IDs[Strata==strataLable[1]],perms=perms,return.permIDs=TRUE,Strata=NULL,forceRandom=TRUE)
+		foreach(stratum = 2:length(strataSz)) %do% {
+		space$permID =cbind(space$permID,.make.PermSpace(IDs=IDs[Strata==strataLable[stratum]],perms=perms,return.permIDs=TRUE,Strata=NULL,forceRandom=TRUE)$permID)
+		}
+	}
+}
+
 
 ############################
 # rotation space of a vector Y. 
 # perms is the number of permutations; seed the seed for random number generation, rotFunct the function to generate the random rotations
 ############################
-.RotSpaceMatchInput <- function(perms) {
+.make.RotSpace <- function(Y,perms) {
 
-	rotFunct <- function(n){
-		R <- matrix(rnorm(n^2),ncol=n) 
-		R <- qr.Q(qr(R, LAPACK = TRUE)) 
-		return(R)
-	}
-
-	if (is.list(perms)) {
-		perms <- perms[c("number","seed","rotFunct")]
-		if(is.null(perms$number))  perms$number <- 1000
-		if(is.null(perms$seed) || is.na(perms$seed) )  perms$seed <- round(runif(1)*1000)
-		if(is.null(perms$rotFunct))  perms$rotFunct <- rotFunct
-		 return(perms)
-	}
+	#only the number of random permutations is provided
+	if (is.numeric(perms)) perms=list( B=perms, seed= NA ) else if(!is.list(perms)) perms= as.list(perms)
 	
-	#only the number of random permutaitons is provided
-	if (is.numeric(perms)) return(list(rotFunct = rotFunct, number=perms, seed= round(runif(1)*1000)))	
+	##then it is a list anyway now
+	perms <- perms[intersect(names(perms),c("B","seed","n","rotFunct"))]
+	if(is.null(perms$n))  perms$n <- length(Y)
+	if(is.null(perms$B))  perms$B <- 1000
+	#if(is.null(perms$seed) || is.na(perms$seed) )  perms$seed <- round(runif(1)*1000)
+	if(is.null(perms$rotFunct))  
+		perms$rotFunct  <- function(i) { #argument is not used now
+			R <- matrix(rnorm(perms$n^2),ncol=perms$n) 
+				#R <- qr.Q(qr(R, LAPACK = TRUE))
+				#does not work properly. same for LAPACK = FALSE
+			R <- svd(R)$u
+ 			return(R%*%data$Y)
+		}
+
+	return(perms)
+	
 }	  
 
 
-		
+######################################
+.make.SimSpace <- function(covs,perms) {
+
+	#only the number of random permutations is provided
+	if (is.numeric(perms)) perms=list( B=perms, seed= NA ) else if(!is.list(perms)) perms= as.list(perms)
+	
+	##then it is a list anyway now
+	perms <- perms[intersect(names(perms),c("B","seed","n","rotFunct"))]
+	if(is.null(perms$n))  perms$n <- nrow(covs)
+	if(is.null(perms$B))  perms$B <- 1000
+	#if(is.null(perms$seed) || is.na(perms$seed) )  perms$seed <- round(runif(1)*1000)
+	perms$p=ncol(covs)
+	perms$rots=foreach(i = 1:nrow(covs),.combine=rbind) %do% {ei=eigen(covs[i,,]); ei$values[ei$values<0]=0; diag(sqrt(ei$values))%*%t(ei$vectors)}
+	#now covs is a list of length n
+	#perms$rots = foreach(i = 1:length(covs),.combine=rbind) %do% covs[[i]]
+	rm(covs)
+	if(is.null(perms$rotFunct))  
+		perms$rotFunct  <- function(i) { #argument is not used now
+			R <- rnorm(nrow(perms$rots))*perms$rots
+			R <- array(R,c(perms$p,perms$n,perms$p))
+			R <- apply(R,c(2,3),sum)
+		}
+	return(perms)
+}	  
+
 ############################
 # Iterative function calculates all permutations of a vector
 # values: vector of all unique values
@@ -156,19 +229,19 @@ allpermutations <- function(Y) {
 
 ##########
 #compute p-value space P from statistic space T (the percentile of the statistic T column-wise)
-t2p<-function(T,obs.only=TRUE,tail = 1){  
+t2p<-function(T, obs.only=TRUE, tail = 1){  
     
 	if(!missing(tail))	T = .setTail(T,tail)
 	
 	if(!is.matrix(T)) {T<-as.matrix(T)}
 	if(obs.only) { 
-		P=matrix(apply(T,2,function(permy)mean(permy>=permy[1])),1,dim(T)[2])
+		P=matrix(apply(T,2,function(permy)mean(permy>=permy[1],na.rm=TRUE)),1,ncol(T))
 		rownames(P)="p-value"
 	}
 	else{
 		#oth<-seq(1:length(dim(T)))[-1]
-		B<-dim(T)[1]
-		P=apply(-T,2,rank,ties.method ="max")/B
+		B<-nrow(T)
+		P=apply(-T,2,rank,ties.method ="max",na.last="keep")/B
 		P=as.matrix(P)
 		rownames(P)=c("p-obs",paste("p-*",1:(B-1),sep=""))
 	}

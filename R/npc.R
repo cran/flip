@@ -15,18 +15,20 @@ npc <- function(permTP, comb.funct = c(flip.npc.methods, p.adjust.methods) ,subs
 	if(comb.funct == "Direct") comb.funct ="sumT"
 	
 	if(is(permTP,"flip.object")){
-		nperms = permTP@call$perms
+		nperms = permTP@call$B
 		if(comb.funct %in% c("Fisher", "Liptak", "minP")) {
 			if(!is.null(permTP@permP)){ 
 				permTP=permTP@permP			
 			} else { 
 				if(!is.null(permTP@permT)) { permTP=t2p(permTP@permT,obs.only=FALSE,tail=permTP@tail)} else {print("Joint distribution of p-values not provided. Nothing done."); return()}
 			} 
-		} else if(comb.funct %in% c("maxT", "sumT", "sumT2")) {permTP=.setTail(permTP@permT,tail=.fitTail(permTP@permT,permTP@tail) ) }
+		} else if(comb.funct %in% c("maxT", "sumT", "sumT2")) {
+			if(is.null(permTP@permT)) {print("Joint distribution of p-values not provided. Nothing done."); return()}
+			permTP=.setTail(permTP@permT,tail=.fitTail(permTP@permT,permTP@tail) ) }
 	}
 	
 	
-	if(!exists("nperm"))  nperms = list(number=nrow(permTP),seed=NA)
+	#if(!exists("nperm"))  nperms = list(number=nrow(permTP),seed=NA)
 	
 	if(!is.matrix(permTP)) permTP=as.matrix(permTP)
 	if(stdSpace & (comb.funct %in% c("maxT", "sumT", "sumT2"))) {permTP = .t2stdt(permTP,FALSE)}
@@ -64,28 +66,30 @@ npc <- function(permTP, comb.funct = c(flip.npc.methods, p.adjust.methods) ,subs
       if (length(weights) != ncol(permTP)) 
         stop("length of \"weights\" does not match column count of \"permTP\"")
       all.weights <- weights
-    } else
-      all.weights <- rep(1, ncol(permTP))
-	  names(all.weights) = colnames(permTP)
-  
-  
+    } else {
+      if(comb.funct=="sumT") 
+		all.weights <- rep(1/sqrt(ncol(permTP)), ncol(permTP)) else 
+		all.weights <- rep(1, ncol(permTP)) 	 
+	}
+	names(all.weights) = colnames(permTP)
   
 	if(comb.funct %in% c("Fisher", "Liptak", "sumT", "sumT2")){
 		  test= function(subset=NULL,weights=NULL){ 
 		  permT = matrix(if(is.null(subset)) permTP%*%all.weights else permTP[,subset,drop=FALSE]%*%all.weights[subset]) ;permT}
 	} else 	if(comb.funct %in% c("minP", "maxT"))
 		   test= function(subset=NULL,weights=NULL){ #browser()
-		   permT = matrix(apply(if(is.null(subset)) t(all.weights*t(permTP)) else 
-		   t(all.weights[subset]*t(permTP[,subset,drop=FALSE])) , 1, max))  ;permT}
+					permT = matrix(apply(if(is.null(subset)) { if(one.weight) t(all.weights*t(permTP)) else permTP } else 
+					t(all.weights[subset]*t(permTP[,subset,drop=FALSE])) , 1, max))  ; 
+					permT
+					}
 
-	
-	
+					
 	# Do the test
   if ((!many.subsets) && (!many.weights)) {           # single weighting; single subset
     permT <- test()
-	nVar=dim(permTP)[2]
+	nVar=ncol(permTP)
   } else {     
-    L <- if (many.subsets) length(subsets) else length(weights)                 
+    L <- if (many.subsets) length(subsets) else length(weights)
     permT <- sapply(1:L, function (i) { 
       if (trace && L>1) {
         cat(rep("\b", 2*digitsK+3), i, " / ", K, sep="")
@@ -102,26 +106,19 @@ npc <- function(permTP, comb.funct = c(flip.npc.methods, p.adjust.methods) ,subs
     })
     if (many.subsets && !is.null(names(subsets))){
       colnames(permT) <- names(subsets)
-	  nVar=sapply(subsets,length)
 	}
     else if (many.weights && !is.null(names(weights))){
       colnames(permT) <- names(weights)
-	  nVar=sapply(weights,length)
 	}
+	nVar=ifelse(is.null(subsets), 1, sapply(subsets,length))*ifelse(is.null(weights), 1, sapply(weights,length))
   }
   if (trace && (many.subsets || many.weights) && L>1) cat("\n")
 	
 	
 	
-#	out=eval.parent(makeFlipObject(),n=2)
-#makeFlipObject <- function(){
-	# get p-values
-	p=t2p(permT,obs.only=TRUE)
-
-	#build the flip-object
 	  if(!exists("flipReturn") || is.null(flipReturn)) 
 			flipReturn=list(permT=TRUE,permP=FALSE)
-  
-	out=.getOut(type="npc",permSpace=NULL,permP=p,permT=permT, data=list(),tail=NULL, call=match.call(), flipReturn=flipReturn,extraInfoPre=list(comb.funct=comb.funct,nVar=nVar))
+  #build the flip-object
+	out=.getOut(type="npc",res=list(permT=permT,extraInfoPre=list(comb.funct=comb.funct,nVar=nVar)),data=list(),tail=NULL, call=match.call(), flipReturn=flipReturn)
 	return(out)
 }

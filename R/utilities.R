@@ -1,75 +1,89 @@
+utils::globalVariables(c("dummy.data.frame",".kolmogorov.dependence.nptest"))
+
+
 #####trace of a matrix
 .tr <- function(sigma) sum(diag(sigma))
 
 #################### widelly taken from gt{globaltest}
-.getXY <- function(Y,X,Z,data){
+.getXY <- function(Y,X,Z,data,rotationTest,dummyfy=NULL,statTest,Strata=NULL){
 	call <- match.call()
-  # # avoid conflict between "levels" input and "levels" function
-  # if (missing(levels)) levels <- NULL
-                       
-  # data default
-  if (missing(data) || is.null(data))
-    if(is.data.frame(Y) | (is.matrix(Y)))
-	  data <- Y else data <- NULL
   
-  if (is.matrix(data))  
+  if(is.null(dummyfy)) {
+	dummyfy=list(X=TRUE,Y=TRUE) 
+	} else{
+	DUM=list(X=TRUE,Y=TRUE)
+	DUM[names(dummyfy)]=dummyfy
+	dummyfy=DUM
+	rm(DUM)
+	}
+	if(statTest%in%c("Wilcoxon", "Kruskal-Wallis", "rank")) dummyfy$X=TRUE
+	if(statTest%in%c("AD", "Kolmogorov-Smirnov")) {dummyfy$Y=TRUE ; Yordinal=TRUE} else  Yordinal=FALSE
+	if(statTest%in%c("chisq","chisq.separated")) {dummyfy=list(X=TRUE,Y=TRUE) ; Yordinal <- Xordinal <- TRUE}
+	oldRefCat=options()$ref.cat
+	options(exclude.ref.cat=TRUE)
+	if(statTest%in%c("AD", "Kolmogorov-Smirnov","chisq","chisq.separated")) {
+		options(ref.cat=NULL)
+		options(exclude.ref.cat=FALSE) }
+	
+	
+  # data default
+  # if (missing(data) || is.null(data))
+    # if(is.data.frame(Y) | (is.matrix(Y)))
+	  # data <- Y else data <- NULL
+  # if (is.matrix(data))  
+    # data <- data.frame(data)
+  if(missing(data)) data=NULL
+  if(!is.null(data) && is.matrix(data))  
     data <- data.frame(data)
-
-  # evaluate Y, which may be one of the colnames of data
-  Y <- eval(Y, data, parent.frame())
-
-  # settle Z, X and Y if Y is a formula
-  if (missing(Z) || is.null(Z)) {
-    if (!is.null(dim(Y)[1]))
-      Z <- rep(0,dim(Y)[1])  else 	
-	  if(is.data.frame(data)) Z <- ~0 else  stop("argument \"Z\" is missing, with no default")  
-  }  
-  if (missing(X) || is.null(X))  ########livio:  ?
-    if (is(Y, "formula")){ 
-		#if it is a left+right formula
-		if(length(Y)==3) X <- Y[c(1,3)]  else X <- Y
-    } else if(is.data.frame(data)) X <- ~1 else  stop("argument \"X\" is missing, with no default")  
 	
-  if (is(Y, "formula")) {
-    name.Y <-  as.character(eval(Y)[[2]]) #serve sta roba?
-    Y <- eval(attr(terms(Y, data=data), "variables"), data, environment(Y))[[attr(terms(Y, data=data), "response")]]
-  } else {
-    name.Y <- deparse(call$Y) #serve sta roba?
-  }
-
-  # keep NAs
-  old.na.action <- options()$na.action  
-  options(na.action="na.pass")
-  Y =  .makeContrasts(~.,data=data.frame(Y),excludeRefCat=FALSE,excludeIntercept=TRUE)
-  # restore default
-  options(na.action = old.na.action)
 	
-  # # remove redundant levels from factor Y
-  # # and coerce Y to factor in case of levels input
-  # if (is.factor(Y) || !is.null(levels))
-  #  Y <- factor(Y) 
+  if (missing(X) || is.null(X))
+  		#if it is a left+right formula
+    if (is(Y, "formula") || length(Y)==3){ 
+			X <- Y[c(1,3)]
+			Y <- Y[c(1,2)] 
+    } else X <- ~1 
+  
+  if (missing(Z)) Z=NULL
                                      
   # remove terms from X that are also in Z
   if (is(Z, "formula") && is(X, "formula") && 
         identical(environment(Z), environment(X))) {
 	if( !( (length(attr(terms(X, data=data), "term.labels"))==0) & (length(attr(terms(Z, data=data), "term.labels"))==0)  )) {
 		dup <- attr(terms(X, data=data), "term.labels") %in% attr(terms(Z, data=data), "term.labels")
-		if (all(dup)) stop("all covariates in X also in Z")  
+		if (all(dup)) stop("all covariates in X also in Z")
 		if (any(dup)) 
 			X <- formula(terms(X,data=data)[!dup])
 	}
   }
+  
+  # evaluate Y, which may be one of the colnames of data
+  if(is(Y,"formula")) Y <- model.frame(Y, data, drop.unused.levels = TRUE)
+  Y <- eval(Y, data, parent.frame(sys.nframe()))
+
   n <- nrow(Y)
+  
   # get Z and X
-  Z <- .getNull(Z, data, n)
-  offset <- Z$offset   
-  Z <- Z$Z
-  Z <- Z[,apply(Z,2,function(x) !all(x==0)),drop=FALSE]
-  #if(unique(Z[,"(Intercept)"])==0) 
+  X <- .getAlternative(X, data= if(is.null(data)) data.frame(Y) else data, n,dummyfy=dummyfy)
+  attrXassign=attributes(X)$assign
+  attrXfactors=attributes(X)$factors
   
-  
-  X <- .getAlternative(X, data, n)
-  X <- X[, setdiff(colnames(X),colnames(Z)),drop=FALSE]
+  if(!is.null(Z)){
+	  Z <- .getNull(Z, data, n)
+	  offset <- Z$offset   
+	  Z <- Z$Z
+	  Z <- Z[,apply(Z,2,function(x) !all(x==0)),drop=FALSE]
+	  attrXassign=attrXassign[setdiff(colnames(X),colnames(Z))]
+	  X <- X[, setdiff(colnames(X),colnames(Z)),drop=FALSE]
+  }  else 
+	 if((ncol(X)>0) && rotationTest) {
+	 Z=matrix(rep(1,n))
+	 attrXassign=attrXassign[!.getIntercept(X)]
+	 X <- X[, !.getIntercept(X),drop=FALSE]
+	 }
+  if(!is.null(Strata)){
+	  Strata <- .getStrata(Strata, data, n)
+  } else Strata=NULL
   
   # # Adjust input due to levels argument
   # if ((!is.null(levels)) && is.factor(Y)) {
@@ -92,32 +106,59 @@
   # }
   
   
-  # conservatively impute missing values in X
-  all.na <- apply(is.na(X), 2, all)
-  some.na <- apply(is.na(X), 2, any) & !all.na
+  # # conservatively impute missing values in X
+  # all.na <- apply(is.na(X), 2, all)
+  # some.na <- apply(is.na(X), 2, any) & !all.na  
+  # if (is.null(Z) || ncol(Z) == 0) {
+   # X[is.na(X)] <- 0
+  # } else {
+	# if(any(some.na))
+		# X[,some.na] <- apply(X[,some.na, drop=FALSE], 2, function(cov) {
+			# fit <- lm(cov ~ 0 + Z, x = TRUE)
+			# coefs <- coef(fit)
+			# coefs[is.na(coefs)] <- 0
+			# cov[is.na(cov)] <- drop(Z %*% coefs)[is.na(cov)]
+			# cov
+			# })
+    # X[,all.na] <- 0 
+  # }
   
-  if (ncol(Z) == 0) {
-   X[is.na(X)] <- 0
-  } else {
-	if(any(some.na))
-		X[,some.na] <- apply(X[,some.na, drop=FALSE], 2, function(cov) {
-			fit <- lm(cov ~ 0 + Z, x = TRUE)
-			coefs <- coef(fit)
-			coefs[is.na(coefs)] <- 0
-			cov[is.na(cov)] <- drop(Z %*% coefs)[is.na(cov)]
-			cov
-			})
-    X[,all.na] <- 0 
+  
+  # if (is(Y, "formula")) {
+    # name.Y <-  as.character(eval(Y)[[2]]) #serve sta roba?
+    # Y <- eval(attr(terms(Y, data=data), "variables"), data, environment(Y))[[attr(terms(Y, data=data), "response")]]
+  # } else {
+    # name.Y <- deparse(call$Y) #serve sta roba?
+  # }
+
+  # keep NAs
+  old.na.action <- options()$na.action  
+  options(na.action="na.pass")
+  if(dummyfy$Y) {
+		if(Yordinal) Y=as.data.frame(lapply(Y,factor,ordered=TRUE))
+		Y =  .makeContrasts(~.,data=data.frame(Y),excludeRefCat=FALSE,excludeIntercept=TRUE)
   }
+  # restore default
+  options(na.action = old.na.action)
+  attributes(X)$assign=attrXassign
+  attributes(X)$factors=attrXfactors
+  options(ref.cat =oldRefCat)
   
-  return(list(Y=Y,X=X,Z=Z))
+  if(is.null(Z) && !any(.getIntercept(X)))   X=cbind(1,X)
+  if(statTest%in%c("t", "F")) {
+	data <- list(Y=Y,X=X,Z=Z,Strata=Strata,intercept=FALSE)
+	data <- .orthoZ(data)
+	return(data)
+  } else  return(list(Y=Y,X=X,Z=Z,Strata=Strata,intercept=FALSE))
 }
 
 ##########################
 # set the contrast for factors
 #######################
-###TODO : sistemare la funzione .makeContrasts!!!!!! mi pare che non funzioni bene excludeRefCat , non funziona neppure con interazioni & excludeRefCat (non esclude l'interazione di riferimento!)
-.makeContrasts <- function(formu, data=data,excludeRefCat=TRUE,excludeIntercept=FALSE){ #excludeRefCat is used only for NOT ordered factors
+###TODO : sistemare la funzione .makeContrasts!!!!!! mi pare che non funzioni bene excludeRefCat , 
+#non funziona neppure con interazioni & excludeRefCat (non esclude l'interazione di riferimento!)
+.makeContrasts <- function(formu, data=data,excludeRefCat=options()$exclude.ref.cat,excludeIntercept=FALSE){ 
+#excludeRefCat is used only for NOT ordered factors
     # make appropriate contrasts
     mframe <- model.frame(formu, data=data,na.action = NULL)
 	if(length(mframe)>0){
@@ -126,29 +167,17 @@
 		levs <- levels(mframe[[fac]])
 		k <- length(levs)
 			if (is.ordered(mframe[[fac]])) {
-				if (k %% 2 == 1) { 
 					contr <- array(0, c(k, k-1), list(levs, paste("[",levs[-k], "<", levs[-1],"]", sep="")))
-					contr[outer(1:k,1:(k-1), ">")] <- 1
-					contr[,1:((k-1)/2)] <- contr[,1:((k-1)/2)] -1
-				} else {
-					levsplus <- c(levs[1:(k/2)], "(mid)", levs[k/2+1:(k/2)])
-					contr <- array(0, c(k+1, k), list(levsplus, paste("[",levsplus[-(k+1)], "<", levsplus[-1],"]", sep="")))
-					contr[outer(1:(k+1),1:k, ">")] <- 1
-					contr[,1:(k/2)] <- contr[,1:(k/2)] - 1
-					contr <- contr[-(1+k/2),]
-					contr[,k/2+c(0,1)] <- contr[,k/2+c(0,1)] / sqrt(2)
-				}
-				# colnames(contr)=gsub("<",".lower.",colnames(contr))  # inutile
-				# colnames(contr)=gsub(">",".greater.",colnames(contr))
+					contr[ lower.tri(contr)] <- 1
 			} else {
 				contr <- diag(k)
 				rownames(contr) <- levs
 				colnames(contr) <- paste(".",levs,".",sep="")
 
-				if(excludeRefCat) contr <- contr[,-1]
+				if(excludeRefCat) contr <- .leaveRefCat(contr)
 				
 			}
-			contr  
+			contr
 		})
 		names(contrs) <- factors
 	}
@@ -164,18 +193,29 @@
 	# for(i in which(ords)) data[,i]=factor(data[,i],ordered=FALSE)
 	
     formu <- model.matrix(formu, contrasts.arg=contrs, data=data,na.action = NULL)
+	if(exists("factors")) attributes(formu)$factors=factors
 #	if(!all(colnames(formu) == "(Intercept)" ) ) { #if only the intercept is present
 	#	formu <- formu[,colnames(formu) != "(Intercept)",drop=FALSE]    # ugly, but I've found no other way
  #   }
 	formu
   }
+  
+ ########################
+ .leaveRefCat <- function(D){
+	if(is.null(options()$ref.cat)) return(D) else
+	if(options()$ref.cat=="first") out=1 else
+	if(options()$ref.cat=="last") out=ncol(D) else
+	out=options()$ref.cat
+	D=D[,-out,drop=FALSE]
+	D
+ }
 ############################
 # Get the X design matrix
 ############################
-.getAlternative <- function(X, data, n) {
+.getAlternative <- function(X, data, n,dummyfy=list(Y=TRUE,X=TRUE)) {
   # coerce X into a matrix
   if (is.data.frame(X) || is.vector(X)) {
-    if (all(sapply(X, is.numeric))) {
+    if (all(sapply(X, function(x) is.numeric(x)| is.logical(x)))) {
       X <- as.matrix(X)
     } else {
       stop("argument \"X\" could not be coerced into a matrix")
@@ -190,7 +230,7 @@
     # keep NAs
     old.na.action <- options()$na.action  
     options(na.action="na.pass")
-	X=.makeContrasts(X,data=data)
+	if(dummyfy$X) X=.makeContrasts(X,data=data)
     # restore default
     options(na.action = old.na.action)
 	}
@@ -200,7 +240,7 @@
   }
   # if (is.null(colnames(X)))
     # stop("colnames missing in X design matrix")
-  if(is.null(colnames(X))) colnames(X)=paste("X",1:dim(X)[2],sep="")
+  if(is.null(colnames(X))) colnames(X)=paste("X",1:ncol(X),sep="")
   X
 }
 
@@ -240,7 +280,7 @@
     # # suppress intercept if necessary (can this be done more elegantly?)
     # if (model == "cox") Z <- Z[,names(Z) != "(Intercept)"]
   }
-
+  
   # check dimensions
   if (nrow(Z) != n) {
     stop("the length of \"Y\" (",n, ") does not match the row count of \"Z\" (", nrow(Z), ")")
@@ -248,52 +288,57 @@
   list(Z = Z, offset = offset)
 }
 
+############################
+# Get the Strata vector
+############################
+.getStrata <- function(Strata, data, n) {
+  # coerce Strata into a matrix and find the offset term
+  #stop("argument \"Strata\" could not be coerced into a matrix")
+
+  if (is(Strata, "formula")) {
+    if (is.null(data)) {
+      tnull <- terms(Strata)
+    } else {
+      tnull <- terms(Strata, data=data)
+    }
+	if(attr(tnull, "intercept") == 1) attr(tnull, "intercept") = NULL
+    Strata <- model.frame(tnull, data, drop.unused.levels = TRUE)
+    if(ncol(Strata)>1) Strata=as.matrix(apply(Strata,1,paste,collapse="-") )
+  } else if(is.vector(Strata)) Strata=as.matrix(Strata)
+  
+  # check dimensions
+  if (nrow(Strata) != n) {
+    stop("the length of \"Y\" (",n, ") does not match the row count of \"Strata\" (", nrow(Strata), ")")
+  }
+  Strata
+}
+
+##############################################
+.getIntercept <- function(X) apply(X,2,function(x)length(unique(x))==1)
+
 ##############################################
 
-
-#make "hight" (depending on the tail) values of the statistics to be significative
-.fitTail <- function(permT,tail){
-	if (missing(tail)||is.null(tail)) {
-        tail = rep(0, dim(permT)[2])
-    }     else if (length(tail) != dim(permT)[2]) 
-        tail <- rep(tail,len = dim(permT)[2])
-	tail
-}
-
-.setTail <- function(permT, tail){
-    .fitTail(permT,tail)
-		
-    permT[, tail < 0] <- -permT[, tail < 0]
-    permT[, tail == 0] <- abs(permT[, tail == 0])
-	permT[is.na(permT)]=0
-	permT
-}
-
-.setTailOut <- function(permT=permT, tail=tail){
-	dir=as.character(sign(c(1,-1)%*%.setTail(matrix(c(1,-1),2,dim(permT)[2]),tail)))
-	dir[dir=="1"]=">"
-	dir[dir=="-1"]="<"
-	dir[dir=="0"]="><"
-
-	dir
-}
-
-
-###########################################################
-.orthoZ <- function(Y,X,Z){		
-	ZZ= try(solve(t(Z) %*% Z),silent=TRUE)
-	if(is(ZZ,"try-error")) return(list(Y=NA,X=NA))
-    IP0 <- diag(dim(Z)[1]) - Z %*% solve(t(Z) %*% Z) %*% t(Z)
+.orthoZ <- function(data,returnGamma=FALSE){
+	if(is.null(data$Z) || (ncol(data$Z)==0)) return(data)
+	attrsYassign<-attributes(data$Y)$assign
+	attrsXassign<-attributes(data$X)$assign
+	ZZ= try(solve(t(data$Z) %*% data$Z),silent=TRUE)
+	if(is(ZZ,"try-error")) {warning("Data can not be orthoganalized"); return(data)}
+    IP0 <- diag(nrow(data$Z)) - data$Z %*% solve(t(data$Z) %*% data$Z) %*% t(data$Z)
 	IP0 <- (IP0 + t(IP0))/2
     ei=eigen(IP0)
-	if(any(is.complex(ei$values))) {
-		return(list(Y=NA,X=NA))
-	}
-        ei$vectors <- ei$vectors[,(ei$values > 1e-1)] #gli autovalori sono tutti 0 o 1
-        Y <- t(ei$vectors)%*%Y
-        X <- t(ei$vectors)%*%X
-        list(Y=Y,X=X)
-	}
+	if(any(is.complex(ei$values))) {warning("Data can not be orthoganalized"); return(data)}
+    ei$vectors <- ei$vectors[,(ei$values > 1e-1)] #gli autovalori sono tutti 0 o 1
+    data$Y <- t(ei$vectors)%*%data$Y
+    data$X <- t(ei$vectors)%*%data$X
+	colnames(data$Y)=.getYNames(data$Y)
+	colnames(data$X)=.getXNames(data$X)
+	attributes(data$Y)$assign<-attrsYassign
+	attributes(data$X)$assign<-attrsXassign
+	data$Z=NULL
+	if(returnGamma) data$Gamma=ei$vectors
+	data
+}
 
 
 
@@ -410,66 +455,111 @@ if(missing(weights)) {weights=NULL; many.weights=FALSE}
   return(list(one.weight=one.weight,many.subsets=many.subsets, many.weights=many.weights, subsets=subsets, weights=weights))
 }
 
+########################################################### tail util
+
+#make "hight" (depending on the tail) values of the statistics to be significative
+.fitTail <- function(permT,tail){
+	if (missing(tail)||is.null(tail)) {
+        tail = rep(0, ncol(permT))
+    }     else if (length(tail) != ncol(permT)) {
+		attrs=attributes(tail)$center
+        tail <- rep(tail,len = ncol(permT))
+		attributes(tail)$center=rep(attrs,len = ncol(permT))
+		}
+	tail
+}
+
+.setTail <- function(permT, tail){
+    tail=.fitTail(permT,tail)
+	if (!is.null(attributes(tail)$center)) {
+		#tail==0 and need to be centered:
+		center=attributes(tail)$center
+		inters = intersect(colnames(permT)[tail==0],names(center)) 
+		if(length(inters)>0) {
+			center = attributes(tail)$center[inters] 
+			permT[,names(center)] <- scale(permT[,names(center)],center=center)
+			}
+	}
+	permT[, tail < 0] <- -permT[, tail < 0]
+    permT[, tail == 0] <- abs(permT[, tail == 0])
+	permT[is.na(permT)] <- 0
+	permT
+}
+
+.setTailOut <- function(permT=permT, tail=tail){
+	dir=as.character(sign(c(1,-1)%*%.setTail(matrix(c(1,-1),2,ncol(permT)),tail)))
+	dir[dir=="1"]=">"
+	dir[dir=="-1"]="<"
+	dir[dir=="0"]="><"
+	dir
+}
+
+
+###########################################################
 
 ################### get results
-.getOut <- function(type="flip",permSpace,permT, data=NULL,tail=0, call=NULL, flipReturn=list(permT=TRUE),separatedX=TRUE,extraInfoPre=NULL,extraInfoPost=NULL,...){ 
-		
-    # test statistic and std dev
-	stat=permT[1,]
-	stDev=apply(permT,2,sd,na.rm=TRUE)
-	pseudoZ=.t2stdt(permT)
+.getOut <- function(type="flip",res=NULL, data=NULL, call=NULL, flipReturn=list(permT=TRUE),separatedX=TRUE,extraInfoPre=NULL,extraInfoPost=NULL,...){ 
+	colnames(res$permT)=.getTNames(data$Y,data$X,permT=res$permT) 
 
-	p=t2p(permT,obs.only=TRUE,tail=tail)
+		# test statistic and std dev
+	stat=res$permT[1,]
+	#### da rivedere
+	#stDev=apply(res$permT,2,sd,na.rm=TRUE)
+	#pseudoZ=.t2stdt(res$permT)
+
+	p=t2p(res$permT,obs.only=TRUE,tail=res$tail)
 	
 	
 	if(type=="flip"){
-		if((missing(separatedX)) || separatedX){
-			# tails of the test
-			dir=as.character(sign(c(1,-1)%*%.setTail(matrix(c(1,-1),2,dim(permT)[2]),tail)))
-			stat[dir=="-1"]=-stat[dir=="-1"]
-			dir[dir=="1"]=">"
-			dir[dir=="-1"]="<"
-			dir[dir=="0"]="><"
-		} else {
-			dir=rep("F",dim(permT)[2])
-			tail[tail!=0]=0
-		}
-		
+		# tails of the test
+		dir=.setTailOut (permT=res$permT, tail=res$tail)		
 		#build the results table
-		TAB=data.frame(T=as.vector(stat),sd.permT=as.vector(stDev), pseudoZ=as.vector(pseudoZ),tail=as.vector(dir), p=as.vector(p))
+		TAB=data.frame(Stat=as.vector(stat),#sd.permT=as.vector(stDev), pseudoZ=as.vector(pseudoZ),
+			tail=as.vector(dir), p=as.vector(p))
 		colnames(TAB)[colnames(TAB)=="p"]="p-value"
-		rownames(TAB)=colnames(permT)
+		rownames(TAB)=colnames(res$permT)
 	} else if(type=="npc"){
 		#build the results table
-		TAB=data.frame(T=as.vector(stat),sd.permT=as.vector(stDev), pseudoZ=as.vector(pseudoZ), p=as.vector(p))
+		TAB=data.frame(Stat=as.vector(stat),#sd.permT=as.vector(stDev), pseudoZ=as.vector(pseudoZ), 
+			p=as.vector(p))
 		colnames(TAB)[colnames(TAB)=="nvar"]="#Vars"
 		colnames(TAB)[colnames(TAB)=="p"]="p-value"
-		rownames(TAB)=colnames(permT)
+		rownames(TAB)=colnames(res$permT)
 	}
 	
-	if((!is.null(extraInfoPre))) TAB=cbind(data.frame(extraInfoPre),TAB)
-	if((!is.null(extraInfoPost))) TAB=cbind(TAB,data.frame(extraInfoPost))
+	if((!is.null(res$extraInfoPre))) TAB=cbind(data.frame(res$extraInfoPre),TAB)
+	if((!is.null(res$extraInfoPost))) TAB=cbind(TAB,data.frame(res$extraInfoPost))
 	
 	out <- new("flip.object")  
 	out @res = TAB
-	out @nperms = permSpace[c("number")]
+	out @permSpace=if(!is.null(flipReturn$permSpace)&&flipReturn$permSpace) res$perms else res$perms[-which(names(res$perms)=="permID")]
 	out @call = if(!is.null(call)) call
-	out @call$perms = permSpace[c("seed","number")]
-	out @permP=if(!is.null(flipReturn$permP))if(flipReturn$permP) t2p(permT, obs.only=FALSE,tail=tail)
-	out @permT=if(!is.null(flipReturn$permT))if(flipReturn$permT) permT
-	out @permSpace=if(!is.null(flipReturn$permSpace))if(flipReturn$permSpace) permSpace$permID
+	out @call$perms = res$perms[c("seed","B")]
+	out @permP=if(!is.null(flipReturn$permP))if(flipReturn$permP) t2p(res$permT, obs.only=FALSE,tail=res$tail)
+	out @permT=if(!is.null(flipReturn$permT))if(flipReturn$permT) res$permT
 	out @data = if(!is.null(flipReturn$data))if(flipReturn$data) data
-	if(!is.null(tail)) 
-		out @tail = as.matrix(tail)
+	if(!is.null(res$tail)) 
+		out @tail = as.matrix(res$tail)
 	out	
-}
-.getTNames <- function(Y,X=NULL){
-colnames(Y) = .getYNames(Y)
-colnames(X) = .getXNames(X)
+	}
 
-TNames=paste(
-rep(colnames(Y),rep(max(ncol(X),1),ncol(Y))),if((!is.null(X))&&(ncol(X)>1)) paste("_|_",colnames(X),sep="") else "" ,sep="")
-TNames
+
+.getTNames <- function(Y,X=NULL,permT=NULL){
+	if(!is.null(colnames(permT))) {
+		colnames(permT)[colnames(permT)==""] = paste("V",1:ncol(permT),sep="")[colnames(permT)==""]
+		return(colnames(permT))
+	} else	if(is.null(Y)){ 
+		return(paste("V",1:ncol(permT),sep=""))
+	} else {	
+	if(!is.null(X)) if(ncol(X)==0) X=NULL
+	
+	colnames(Y) = .getYNames(Y)
+	colnames(X) = .getXNames(X)
+	TNames=paste(
+	rep(colnames(Y),rep(max(ncol(X),1),ncol(Y))),if((!is.null(X))&&(ncol(X)>1)) paste("_|_",colnames(X),sep="") else "" ,sep="")
+	
+	return(TNames)
+	}
 }
 
 .getNames <- function(Y,prefix=".") {
@@ -492,3 +582,111 @@ c("Tobs", paste("T*",1:(nrow(permT)-1),sep=""))
 		data$se = data$se[,testedWithin]
 		data$df.mod = data$df.mod[,testedWithin]
 		}
+		
+		
+###################################
+###################################
+#####tests utilities
+###################################
+
+#################################
+.prod.perms <- function(data,perms,testType="permutation"){
+	if(testType=="rotation") {
+		envOrig<-environment(perms$rotFunct)
+		environment(perms$rotFunct) <- sys.frame(sys.parent())
+		permT=rbind(as.vector(t(data$X)%*%data$Y),
+				foreach(i = 1:perms$B,.combine=rbind) %do% { 
+					# R is random matrix of independent standard-normal entries 
+					# Z shall be a random matrix with the same mean and covariance structure as Y 
+					as.vector(t(data$X)%*%perms$rotFunct())
+				}
+			)
+		environment(perms$rotFunct) <- envOrig
+		colnames(permT)=.getTNames(data$Y,data$X)
+		rownames(permT)=.getTRowNames(permT)
+	} else if(testType=="permutation") { #permutation test
+		require(foreach)
+		permT <- foreach( i =1:ncol(data$Y) ,.combine=cbind)	%do% {
+			(matrix(data$Y[rbind(1:perms$n,perms$permID),i],ncol=perms$n,nrow=(perms$B+1)) %*% data$X)}
+	} else {warning("test type not implemented (yet?)"); return(NULL)}
+	permT
+}
+
+.prod.perms.P <-function(data,perms,testType="permutation",P=P){
+	if(testType=="rotation") return(.prod.perms.P.rotation(data,perms,P=P)) else{
+		require(foreach)
+		permT <- foreach( i =1:ncol(data$Y) ,.combine=cbind)	%do% {
+			rowSums((matrix(data$Y[rbind(1:perms$n,perms$permID),i],ncol=perms$n,nrow=(perms$B+1))%*%P)^2)
+		}
+		permT
+	}
+	permT= as.matrix(permT)
+	colnames(permT)= colnames(data$Y)
+	permT
+}
+
+
+.prod2sum <- function(permT,data){
+	N=nrow(data$Y)
+	colnames(permT)=.getTNames(data$Y,data$X)
+	rownames(permT)=.getTRowNames(permT)
+	permT
+}	
+			
+.prod2t <- function(permT,data){
+	N=nrow(data$Y)
+	if(data$intercept==TRUE){
+		sYs=colSums(data$Y)
+		sXs=colSums(data$X)
+		data$X=scale(data$X,center=TRUE,scale=FALSE)
+		data$Y=scale(data$Y,center=TRUE,scale=FALSE)
+		permT=scale(permT,center=as.vector(sXs%*%t(sYs)/N),scale=FALSE)
+	}
+	permT=scale( permT,center=FALSE,scale= rep(sqrt(colSums(data$Y^2)),rep(ncol(data$X),ncol(data$Y)))*rep(sqrt(colSums(data$X^2)),ncol(data$Y)))
+	permT=permT/sqrt(1-permT^2)*sqrt(N-ncol(data$X))
+
+	colnames(permT)=.getTNames(data$Y,data$X)
+	rownames(permT)=.getTRowNames(permT)
+	permT
+}				
+
+.prod2F <- function(permT,data){
+	#sumY2=colSums(data$Y)^2
+	permT=foreach(i =1:ncol(permT) ,.combine=cbind)	%do% { 
+		# (permT[,i]-sumY2[i])/(sum(data$Y[,i]^2) - sumY2[i]-permT[,i])} #non funziona. allora centrare le Y e poi
+		permT[,i]/(sum(data$Y[,i]^2)-permT[,i])
+	}
+	permT=permT*(nrow(data$Y)-ncol(data$X))/ncol(data$X)
+	if(is.null(ncol(permT))) permT=as.matrix(permT)
+	permT=round(permT,10)  #########occhio qui, con numeri molto piccoli possono verificarsi problemi				
+	colnames(permT)=.getTNames(data$Y)
+	rownames(permT)=.getTRowNames(permT)	
+	permT
+}
+
+
+.get.eigenv.proj.mat <- function(data){
+	P=data$X%*%solve(t(data$X)%*%data$X)%*%t(data$X)
+	P = eigen((P + t(P))/2)
+	P <- P$vectors[,(P$values > 1e-1),drop=FALSE] #gli autovalori sono tutti 0 o 1
+	P
+}
+
+.getDummiesGroups <- function(X,excludeRefCat=excludeRefCat) {
+	grps=apply(X,1,paste,collapse="")
+	if(length(unique(grps))<=1) {
+		warning("At least two groups are required.") 
+		return(X)
+	} else if(length(unique(grps))==2 ){
+		return(X) 
+	} else {
+#          dummy.data.frame <- function(x){
+#               colnam=unique(x)
+#               out=outer(x,colnam,"==")*1
+#               colnames(out)=colnam
+#               out
+#          }
+		res=dummy.data.frame(apply(X,1,paste,collapse=""))
+		if(excludeRefCat>0) res <- res[,-excludeRefCat,drop=FALSE]
+	}
+}

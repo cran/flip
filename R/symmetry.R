@@ -5,30 +5,95 @@
 # tail : vector of tails 1, -1 or 0
 # permP.return, permT.return, permSpace.return : logical: shoul space of p-values, of statistic and of signs be returned?
 ############################
-.symmetry.nptest <- function(Y, perms=5000,  tail = NULL, W=NULL){
-	if(!is.matrix(Y)) Y=as.matrix(Y)
+.symmetry.nptest <- function(data, perms=5000, statTest="t",  tail = NULL, testType="permutation",...){
+
+	if(is.function(statTest)) {
+		test<-statTest
+	} else if(statTest=="t"){
+		if (testType=="rotation") {
+		test <- .t.rotation.nptest.1sample
+		} else ## permutation test
+		test <- .t.symmetry.nptest
+	} else if(statTest%in%c("Wilcoxon","ranks","Sign")){
+		if (testType=="rotation") warning("Rotations are not allowed for Wilcoxon (i.e. ranks) test, permutations will be used instead.")
+		 ## permutation test
+		test <- .rank.symmetry.nptest
+	} else if(statTest%in%c("McNemar")){
+		if (testType=="rotation") warning("Rotations are not allowed for Mc Nemar test, permutations will be used instead.")
+		 ## permutation test
+		test <- .mcnemar.symmetry.nptest
+	}
+  environment(test) <- sys.frame(sys.nframe())	
+  out <- sys.frame(sys.nframe())
+}
+
+#####################################
+
+.t.symmetry.nptest <- function(){
+  Ns=apply(!is.na(data$Y),2,sum)
+  M2s=apply(data$Y^2,2,sum,na.rm=TRUE)
+  data$Y[is.na(data$Y)]=0
+  perms <- make.signSpace(nrow(data$Y),perms)
+  
+  if(is.null(data$W)){
+    permT <- rbind(rep(1,perms$n),perms$permID) %*% data$Y
+  } else { ### W can be a vector of length nrow(Y) or a matrix of same dim of Y
+    permT <- rbind(rep(1,perms$n),perms$permID) %*% (data$W * data$Y)
+    
+  }
+  
+  colnames(permT) = .getTNames(data$Y)
+  permT = rbind(permT,-permT[nrow(permT):1,,drop=FALSE])
+  rownames(permT)=.getTRowNames(permT)
+  if(statTest=="t") permT=permT/t(sqrt((M2s-t((permT)^2)/Ns)*((Ns)/(Ns-1))))
+  colnames(permT) = .getTNames(data$Y,permT=permT)
+  return(list(permT=permT,perms=perms,tail=tail,extraInfoPre=list(Test=statTest)))
+}
+
+######signed rank test
+.rank.symmetry.nptest <- function(){
+  if(statTest=="Sign"){
+    data$Y=sign(data$Y)  
+    Test="Sign"
+  } else {
+    data$Y=apply(data$Y,2,function(y) 
+    {values= !(is.na(y) | (y==0))
+     values[values]=rank(abs(y[values]))*sign(y[values])
+     values
+    })
+    Test="Wilcoxon Sign"
+  }
 	
-	Ns=apply(!is.na(Y),2,sum)
-	Ms=apply(Y,2,mean,na.rm=TRUE)
-	M2s=apply(Y^2,2,mean,na.rm=TRUE)
-	Y[is.na(Y)]=0
-	permSpace <- make.signSpace(nrow(Y),perms)
+	perms <- make.signSpace(nrow(data$Y),perms)
 	
-	if(is.null(W)){
-		permT <- permSpace$permID %*% Y
+	if(is.null(data$W)){
+		permT <- rbind(rep(1,perms$n),perms$permID) %*% data$Y
 	} else { ### W can be a vector of length nrow(Y) or a matrix of same dim of Y
-		permT <- permSpace$permID %*% (W * Y)
-	
+		permT <- rbind(rep(1,perms$n),perms$permID) %*% (data$W * data$Y)
 	}
 	
-	colnames(permT) = .getTNames(Y)
-	permT = rbind(permT,-permT[nrow(permT):1,])
+	permT = rbind(permT,-permT[nrow(permT):1,,drop=FALSE])
 	rownames(permT)=.getTRowNames(permT)
-	permT=permT/t(sqrt((M2s-t(permT^2))/(Ns-1)))
-	StatType=rep("t",ncol(Y))
+	colnames(permT) = .getTNames(data$Y,permT=permT)
+	return(list(permT=permT,perms=perms,tail=tail,extraInfoPre=list(Test=Test)))
+}
 
-#	out=eval.parent(makeFlipObject(),n=2)
-#makeFlipObject <- function(){
-	# get p-values
-	return(list(permT=permT,permSpace=permSpace,extraInfoPre=list(StatType=StatType)))
+######McNemar test
+.mcnemar.symmetry.nptest <- function(){
+	data$Y=sign(data$Y)
+	data$Y[is.na(data$Y)]=0
+
+	perms <- make.signSpace(nrow(data$Y),perms)
+	
+	if(is.null(data$W)){
+		permT <- rbind(rep(1,perms$n),perms$permID) %*% data$Y
+	} else { ### W can be a vector of length nrow(Y) or a matrix of same dim of Y
+		permT <- rbind(rep(1,perms$n),perms$permID) %*% (data$W * data$Y)
+	}
+	
+	permT=scale(permT,scale=sqrt(colSums(abs(data$Y))))
+	permT = rbind(permT,-permT[nrow(permT):1,,drop=FALSE])
+	rownames(permT)=.getTRowNames(permT)
+	colnames(permT) = .getTNames(data$Y,permT=permT)
+	return(list(permT=permT,perms=perms,tail=tail,extraInfoPre=list(Test="McNemar")))
 }

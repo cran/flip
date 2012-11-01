@@ -1,66 +1,90 @@
-flip <- function(Y, X=NULL, Z=NULL, data=NULL, tail = 0, perms = 1000, flipReturn, rotationTest=FALSE, ...) {
+#######################
+flip.statTest <-
+    c("t", "F", "ANOVA",
+	"Wilcoxon","Kruskal-Wallis", "kruskal", "rank", "Mann-Whitney",
+	"chisq","chisq.separated", "Fisher",
+	"KS", "kolmogorow", "Kolmogorow-Smirnov", 
+	"ad","McNemar", "Sign","sum")
+
+.get.statTest <- function(statTest){ 
+	if(is(statTest,"function")) return(statTest) else
+	
+	statTest <- match.arg(tolower(statTest[1]),tolower(flip.statTest))
+	statTest= flip.statTest[which(statTest==tolower(flip.statTest))]
+	#synonyms
+	if(statTest=="ANOVA") 
+		statTest="F" else
+	if(statTest=="kruskal") 
+		statTest="Kruskal-Wallis" else
+	if(statTest=="Mann-Whitney")
+		statTest="Wilcoxon" else
+# 	if(statTest%in%c("KS", "kolmogorow"))
+# 		statTest="Kolmogorow-Smirnov"
+# 		
+	statTest
+}
+
+#########################
+flip <- function(Y, X=NULL, Z=NULL, data=NULL, tail = 0, perms = 1000, statTest=NULL, Strata=NULL, flipReturn, testType=c("permutation","rotation"), ...) {
 
   if(missing(flipReturn)||is.null(flipReturn)) 
   flipReturn=list(permT=TRUE,permP=FALSE,permSpace=FALSE,data=FALSE)
-  
+
+  if(is.null(statTest) ) if(is.null(list(...)$separatedX)   || list(...)$separatedX)   { statTest="t" } else statTest="F"
+    statTest <- .get.statTest(statTest)
+	
+  if(is.null(testType)){
+	if(is.null(list(...)$rotationTest) || (!list(...)$rotationTest) ) {testType="permutation"; rotationTest=FALSE } else { testType="rotation"; rotationTest=TRUE} 
+  } 
+  testType=match.arg(testType,c("permutation","rotation"))
+  rotationTest= (testType=="rotation")
+
+
+
   # store the call
   call <- match.call()
   # get matrices from inputs
-  data=.getXY(Y,X,Z,data)
+  data <- .getXY(Y,X,Z,data,rotationTest=rotationTest,dummyfy=list(...)$dummyfy,statTest=statTest,Strata=Strata)
+  rm(X,Y,Z,Strata)
+  
+  symmetryTest= is.null(data$X) || (length(unique(data$X))==1)
 
-  
-  ##########GIA' inserito in getXY
-  # # if Z have at least 1 column fill the missing values of X
-  # if (dim(data$Z)[2]>=1  )  {
-	# if possible fill missing data (conservatively)
-	# data$X <- .fillX(data$X,data$Z)
-	# }
-  
-  
-  ################ solution for missing values if any NA in Y AND not a symmetry test (for symmetry test uses standard solution)
-  if ( any(is.na(data$Y)) && (length(unique(data$X))>1)   ){
-	#applica soluzione missing values pesarin
-	#################
-	##################assicurarsi che X sia di variabili dummy!
-	###################
-	if( (ncol(data$Z)==0) && (!rotationTest) )  { 
-		##only 1 grouping variable is allowed, compact if X has more than 1 column
-		res <- .dependenceNA.nptest(Y=data$Y, X=data$X, perms=perms,  tail = tail, ...)
-	} else {
-	#applica regr pesata
-		data$W=10^(-5*(apply(data$Y,2,is.na)))
-		data$X=data$X[,apply(data$X,2,var)>0,drop=FALSE]
-		data$Y[is.na(data$Y)]=0
-		res=.dependenceW.nptest(Y=data$Y, X=data$X, Z=data$Z, W=data$W,  perms=perms,  tail = tail, ...)
-		#OR ROTATION TEST TO BE ADDED. e cambia anche .othoZ (vedi righe 20-23), che accetti anche NA.
-	######MANCA	
-	}  
-  ##############################################
-  } else ##############################################
-  ############## Standard -  (NOT missing values in Y)
-  {
-   #if (Z have at least 1 column and is not constant ) OR (rotationTest)	
-   if ((dim(data$Z)[2]>=1) && any(apply(data$Z,2,var)>0))  {
-		##orthogocanlize the residuals on Z
-		data <- .orthoZ(data$Y,data$X,data$Z)
-		}	  
-   
-   #rotation test
-   if(!missing(rotationTest)&&(rotationTest==TRUE)){
-		res = .rotation.nptest(data$Y, data$X ,perms=perms,...)
-	} else {
-   #permutation test
-		if(length(unique(data$X))>1){ # if X is not a constant perform dependence.nptest
-			data$X=data$X[,apply(data$X,2,var)>0,drop=FALSE]
-			res= .dependence.nptest(Y=data$Y, X=data$X, perms=perms,  tail = tail,...)
-		} else { #otherwise perform a symmetry test
-			res= .symmetry.nptest(Y=data$Y, perms=perms,  tail = tail,...)
+  #check if the problem can be set as one sample problem
+  if(!symmetryTest)
+	if(statTest%in% c("t","sum","rank","Wilcoxon","McNemar","Sign"))
+	  if(  !is.null(data$Strata) ){#is.null(data$Z)|| ncol(data$Z)==0)  &
+			keep=setdiff(1:ncol(data$X),.getIntercept(data$X))
+			if( (length(unique(data$X[,keep]))==2) && 
+				(ncol(data$X[,keep,drop=FALSE])==1) )
+					if(all(table(data$X[,keep],unlist(data$Strata))==1)){
+						attrsYassign=attributes(data$Y)$assign
+						attrsYfactors=attributes(data$Y)$factors
+            
+						data$X=data$X[,keep,drop=FALSE]
+						levs=unique(data$X)
+						data$Y=t(sapply(unique(unlist(data$Strata)), function(ids){
+              data$Y[(data$Strata==ids)&(data$X==levs[2]),]-
+              data$Y[(data$Strata==ids)&(data$X==levs[1]),]}))
+            
+						attributes(data$Y)$assign=attrsYassign
+						attributes(data$Y)$factors=attrsYfactors
+						data$X=NULL
+						data$Strata=NULL
+						data$Z=NULL
+						symmetryTest=TRUE
+					}	
 		}
-	}
- }
   
+  # if symmetry.nptest
+  if(symmetryTest){
+  		test= .symmetry.nptest(data, perms=perms, statTest=statTest,  tail = tail,testType=testType,...)
+  ##dependence.nptest
+  } else 
+	if ( !(any(is.na(data$Y))|| ifelse(is.null(data$X),TRUE,any(is.na(data$X))))){ # standard solutions, not missing data
+		test= .dependence.nptest(data, perms=perms,statTest=statTest,  tail = tail,testType=testType,...)
+	} else {	stop("Warning: NA values are not allowed, nothing done.")	}
+	res <- test$test()
 	#build the flip-object
-	out=.getOut(permSpace=res$permSpace,permT=res$permT, data=data,tail=tail, call=call, flipReturn=flipReturn)
-  return(out)
+	res=.getOut(res=res,data=data, call=call, flipReturn=flipReturn)
+  return(res)
 }
-

@@ -9,9 +9,10 @@ setClassUnion("data.frameOrNULL", c("data.frame", "NULL"))
 setClassUnion("numericOrmatrixOrcharacterOrNULL", c("numeric","matrix", "NULL","character"))
 
 #############da togliere per compilazione (esistno gia in someMTP)
-#setClassUnion("numericOrNULL", c("numeric", "NULL"))
-#setClassUnion("listOrNULL", c("list", "NULL"))
+setClassUnion("numericOrNULL", c("numeric", "NULL"))
+setClassUnion("listOrNULL", c("list", "NULL"))
 
+options(ref.cat="first")
 
 setClass("flip.object", 
   representation(
@@ -19,9 +20,8 @@ setClass("flip.object",
     call = "call", 
 	permP="arrayOrNULL",
 	permT="arrayOrNULL",
-	permSpace="arrayOrNULL",
+	permSpace="listOrNULL",
 	permY="arrayOrNULL",
-	nperms="listOrNULL",
     #functions = "environment",#"list",
     #subsets = "listOrNULL",
     #structure = "listOrNULL",
@@ -34,7 +34,6 @@ setClass("flip.object",
   ),
   prototype = list(
     res = NULL,
-	nperms=NULL,
 	permP=NULL,
 	permT=NULL,
 	permSpace=NULL,
@@ -58,8 +57,9 @@ setMethod("summary", "flip.object", function(object, ...)
   cat(" \"flip.object\" object of package flip\n")
   cat(" Call:\n ")
   cat(deparse(object@call), "\n")
-  cat(ifelse(is.null(nperms$seed),"all",""), nperms$number, ifelse(is.finite(nperms$seed),"random",""), "permutations.\n",   
-	ifelse(is.finite(nperms$seed),paste("(seed: ",is.finite(nperms$seed)," )",sep=""),"")) 
+  # cat(ifelse(is.null(nperms$seed),"all",""), nperms$B, ifelse(is.finite(nperms$seed),"random",""), "permutations.\n",   
+	# ifelse(is.finite(nperms$seed),paste("(seed: ",is.finite(nperms$seed)," )",sep=""),"")) 
+  cat(nperms$B, "permutations.",sep=" ")
   cat("\n")
   show(object)
 })
@@ -72,7 +72,7 @@ setMethod("summary", "flip.object", function(object, ...)
 setGeneric("result", function(object, ...) standardGeneric("result"))
 setMethod("result", "flip.object",
   function(object) { 
-  print(object@res, digits = 3)  
+  print(object@res, digits = 4)  
 })
 
 # setGeneric(".result", function(object, ...) standardGeneric(".result"))
@@ -136,17 +136,37 @@ setMethod("p.value", "flip.object",
 
 
 #==========================================================
+#it concatenates flip objects
+#warning("More than one test statistic is imputed, only the first perms space will be stored.")
+c.flip <- function(...) {
+    if(length(list(...))>1){
+		res <- list(...)[[1]]
+		nperms=sapply(list(...),function(xx) nrow(xx@permT))
+		if(length(unique(nperms))==1) 
+			res@permT = foreach(i = 1:length(list(...)),.combine=cbind) %do%  list(...)[[i]]@permT
+		else{
+			warning("The tests does not have the same number of permutations, only the first permT will be retained.")
+			res@permT=list(...)[[1]]@permT
+			}
+		res@tail = foreach(i = 1:length(list(...)),.combine=c) %do%  rep(list(...)[[i]]@tail,length.out=ncol(list(...)[[i]]@permT)) 
+		# migliore questo output, ammettere la presenza di altri elementi in extraInfoPre
+		res@res = foreach(i = 1:length(list(...)),.combine=rbind) %do% list(...)[[i]]@res
+	} else res=list(...)[[1]]
+	res
+  }
+
+#==========================================================
 setGeneric("size", function(object, ...) standardGeneric("size"))
 setMethod("size", "flip.object",
   function(object) {
-    dim(object@res,1)
+    dim(object@permT)
   }
 )
 # ==========================================================
 # setGeneric("dim", function(object, ...) standardGeneric("dim"))
 # setMethod("dim", "flip.object",
   # function(object) {
-    # c(object@nperms$number , dim(object@res)[1])
+    # c(object@nperms$B , dim(object@res)[1])
   # }
 # )
 
@@ -167,10 +187,12 @@ setMethod("[", "flip.object",
           all(i %in% -1:-length(x)) ||
           (is.logical(i) && (length(i)== length(x)))) {
     x@res <- x@res[i, ,drop=FALSE]
-    if (!is.null(x@permP)) x@permP <- x@permP[,i,drop=FALSE]
-    if (!is.null(x@permT)) x@permT <- x@permT[,i,drop=FALSE]
-    if (!is.null(x@permY)) x@permY <- x@permY[,,i,drop=FALSE]
-	if (!is.null(x@tail)) x@tail <- x@tail[ifelse(length(as.vector(x@tail))==1,1,i)]
+    if (!is.null(x@permP)) #if(i <= ncol(x@permP)) 
+		x@permP <- x@permP[,i,drop=FALSE]
+    if (!is.null(x@permT)) #if(i <= ncol(x@permT)) 
+		x@permT <- x@permT[,i,drop=FALSE]
+    if (!is.null(x@tail)) # if((i <= length(as.vector(x@tail))) || (length(as.vector(x@tail))==1))
+								x@tail <- x@tail[ifelse(length(as.vector(x@tail))==1,1,i)]
     #if (!is.null(x@weights)) x@weights <- x@weights[i]
     x
   } else {
@@ -246,7 +268,7 @@ setGeneric("p.adjust", function(p, method = p.adjust.methods, n = length(p)) sta
 setMethod("p.adjust", matchSignature(signature(p = "flip.object"), p.adjust),
   function(p, method = p.adjust.methods, n = length(p)) {
     method <- method[1]
-    method <- p.adjust.methods[grep(method, p.adjust.methods, ign=T)]
+    method <- p.adjust.methods[grep(method, p.adjust.methods, ignore.case=T)]
     if(length(method)==(0))   # this is just to get a good error message
       method <- match.arg(method)
 	if (missing(n))

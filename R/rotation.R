@@ -1,54 +1,86 @@
-.rotation.nptest <- function (Y, X ,perms=1000,tail, separatedX=TRUE,...){
-  
-	if(!is.matrix(Y)) Y=as.matrix(Y)
-	if(!is.matrix(X)) X=as.matrix(X)
+.t.rotation.nptest <- function(){
+	#data <- .orthoZ(data)
+	N=nrow(data$Y)
+	perms <- make.permSpace(1:N,perms,testType=testType)
 	
+	permT=.prod.perms.rotation(data,perms)
+	if(statTest=="sum") permT= .prod2sum(permT,data) else
+	if(statTest=="t") permT= .prod2t(permT,data)
 	
-	if(separatedX){
-		permT=.randRotate(Y,X,perms)
-		StatType=rep("t-rotation",ncol(Y)*ncol(X))
-		return(list(permT=permT,extraInfoPre=list(StatType=StatType)))
-	} else {
-	    print("Option \"separatedX=FALSE\" is not implemented (yet) for rotation tests! (hint: use  \"separatedX=TRUE\" and cobine the results with npc() )")
+	res=list(permT=permT,perms=perms,tail=tail,extraInfoPre=list(Test="t"))
+}
+
 		
-		# P = X%*%solve(t(X)%*%X)%*%t(X)
-		# #IminusP= diag(N)-P
-		# permT=sapply(1:dim(Y)[2],function(col) {
-				# STATS=foreach( i =1:dim(permSpace$permID)[1] ,.combine=c)	%do% {
-				# t(Y[permSpace$permID[i,],col])%*%P%*%Y[permSpace$permID[i,],col]
-				# }
-				# STATS=STATS/(sum(Y[,col]^2)-STATS)
-			# }
-		# )
-		# permT=permT*(N-dim(X)[2])/dim(X)[1]
-		# permT=round(permT,10)  #########occhio qui, con numeri molto piccoli possono verificarsi problemi
-		# colnames(permT) = colnames(Y)
-		# tail="F"
-	}
+.F.rotation.nptest <- function(){
+	#data <- .orthoZ(data)
+	N=nrow(data$Y)
+	m=ncol(data$Y)
+	q=ncol(data$X)
+	perms <- make.permSpace(1:N,perms,testType=testType)
 	
+	P=.get.eigenv.proj.mat(data)
+	permT=.prod.perms.P.rotation(data,perms,P)
+	permT=.prod2F(permT,data)
+	
+	res=list(permT=permT,perms=perms,tail=1,extraInfoPre=list(Test="F"))
 }
 
 
-################ the core of the procedure
-.randRotate <- function(Y,X,perms){
-	require(foreach)
-	perms=.RotSpaceMatchInput(perms)
-	if(!is.null(perms$seed)) set.seed(perms$seed)
+.t.rotation.nptest.1sample <- function(){
+				data <- .orthoZ(data)
+				
+				naRows=apply(is.na(data$Y),1,sum)
+				if(any(naRows>0)) {
+					warning("Some NA on Y. In rotationTest observations are excluded row-wise")
+					Y=Y[naRows==0,,drop=FALSE]
+				}
+				Ns=nrow(data$Y)
+				M2s=apply(data$Y^2,2,sum)
+				
+				perms <- make.permSpace(1:Ns,perms,testType=testType)
+				
+				permT=rbind(apply(data$Y,2,sum),
+					foreach(i = 1:perms$B,.combine=rbind) %do% { 
+						# R is random matrix of independent standard-normal entries 
+						# Z shall be a random matrix with the same mean and covariance structure as Y 
+						apply(perms$rotFunct(),2,sum)
+					}
+				)
+				colnames(permT) = .getTNames(data$Y)
+				rownames(permT)=.getTRowNames(permT)
+				permT=permT/t(sqrt((M2s-t((permT)^2)/Ns)*((Ns)/(Ns-1))))
+				return(list(permT=permT,perms=perms,tail=tail,extraInfoPre=list(Test="t")))
+}	
 
-	n=nrow(Y)
-	permT=matrix(NA,perms$number+1,ncol(Y)*ncol(X))
-	colnames(permT) = .getTNames(Y,X)
+
+.prod.perms.rotation <-function(data,perms){
+	permT=rbind(as.vector(t(data$X)%*%data$Y),
+			foreach(i = 1:perms$B,.combine=rbind) %do% { 
+				# R is random matrix of independent standard-normal entries 
+				# Z shall be a random matrix with the same mean and covariance structure as Y 
+				as.vector(t(data$X)%*%perms$rotFunct())
+			}
+		)
+	colnames(permT)=.getTNames(data$Y,data$X)
 	rownames(permT)=.getTRowNames(permT)
+	permT
+}
 
-	X=scale(X,center=FALSE)*sqrt(n/(n-1))
-	Y=scale(Y,center=FALSE)*sqrt(n/(n-1))
-	permT[1,]=as.vector(t(X)%*%Y)
-	for (i in 1:perms$number) { 
-		# R is random matrix of independent standard-normal entries 
-		R <- perms$rotFunct(n)
-		# Z shall be a random matrix with the same mean and covariance structure as Y 
-		permT[i+1,] <- as.vector(t(X)%*%R%*%Y)
-    }
-	permT=permT/nrow(Y)
-	permT=permT/sqrt(1-(permT^2))*sqrt(nrow(Y)-1)
+.prod.perms.P.rotation <-function(data,perms,P=P){
+	require(foreach)				
+	.Fvector <- function(Y,P) {
+		apply((t(Y)%*%P)^2,1,sum)
+	}
+	permT=rbind(.Fvector(data$Y,P),
+					foreach(i = 1:perms$B,.combine=rbind) %do% { 
+						# R is random matrix of independent standard-normal entries 
+						# perms$rotFunct() #the function already multiplies the rotation matrix by  Y 
+						# Z shall be a random matrix with the same mean and covariance structure as Y 
+						.Fvector(perms$rotFunct(),P)
+					}
+				)				
+	colnames(permT)=.getTNames(data$Y,data$X)
+	rownames(permT)=.getTRowNames(permT)
+	permT
+
 }

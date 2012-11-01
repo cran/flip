@@ -66,16 +66,15 @@ flip.adjust <- function (permTP, method = flip.npc.methods, maxalpha=1, weights=
 
 
 ################
-.maxt.adjust <- function(permT,maxalpha=1,weights=NULL) {
+.maxt.adjust <- function(permT,maxalpha=1,weights=NULL,m=ncol(permT)) {
 	
-	#numb of hypos
-	m=ncol(permT)
-	
+	#m=numb of hypos
+
 	#get colnames to 
 	if(is.null(colnames(permT))) colnames(permT)=1:m
 	
 	#define the order of testing hypotheses
-	steps=names(sort(-permT[1,]))
+	steps=names(sort(permT[1,],decreasing = TRUE))
 	
 	if(!is.null(weights)) permT=t(weights*t(permT))
 	
@@ -89,7 +88,7 @@ flip.adjust <- function (permTP, method = flip.npc.methods, maxalpha=1, weights=
 	
 	i <- 1
 	while((i<=m) & ifelse(i>1,Padjs[steps[i-1]] <= maxalpha,TRUE)){
-		Padjs[steps[i]]=max( t2p(c(permT[1,steps[i]], apply(permT[-1,notrejs,drop=FALSE],1,max) )) ,Padjs[steps[i-1]] ) #first max ensure monocinity
+		Padjs[steps[i]]=max( t2p(c(permT[1,steps[i]], apply(permT[-1,notrejs,drop=FALSE],1,max) )) ,Padjs[steps[i-1]] ) #first max ensures monocinity
 		notrejs[steps[i]]=FALSE
 		
 		#avoid to compute max if test statistic are equal (specially useful in minp)

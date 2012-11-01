@@ -5,12 +5,17 @@
 The library is devoted to permutation-based inferential methods.
 }
 \description{
-The library is devoted to Univariate and Multivariate permutation-based inferential methods.
+It implements many univariate and multivariate permutation (and rotation) tests.
 
-It allows for multivariate one sample, C>=2 samples and any regression tests. 
-Also the use of covariates (to be fitted in the model but) not under test is allowed.
+The tests comprised are: the one and two samples, ANOVA, linear models,
+Chi Squared test, rank tests (i.e. Wilcoxon, Mann-Whitney, Kruskal-Wallis), 
+Kolmogorov-Smirnov and Anderson-Darling.
 
-Permutation and Rotation method to get the null distribution of the test statistic(s) are available.
+Test on Linear Models are performed also in presence of covariates (i.e. nuisance parameters).
+
+The permutation and the rotation method to get the null distribution of the test statistic(s) are available.
+
+It also implements methods for multiplicity control such as Westfall-Young min-p procedure and Closed Testing (Marcus, 1976).
 }
 \details{
 \tabular{ll}{

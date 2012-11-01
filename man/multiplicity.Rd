@@ -20,16 +20,16 @@ flip.npc.methods
 %- maybe also 'usage' for other objects documented here.
 \arguments{
   \item{permTP}{
-  A permutation space (B times m matrix) or an \code{flip.object} as produced by \code{\link{flip}}. Alternativelly it can be a \code{\link{flip.object-class}} resulting, for example from a call of function \code{\link{flip}}.
+  A permutation space (B times m matrix) or an \code{flip.object} as produced by \code{\link{flip}}. Alternatively it can be a \code{\link{flip.object-class}} resulting, for example from a call of function \code{\link{flip}}.
 }
-  \item{comb.funct}{ A cobining function \code{flip.npc.methods}: "Fisher", "Liptak", "minP" (i.e. Tippet), "maxT", "sumT" (i.e. direct) , "sumT2" (sum of T^2).
+  \item{comb.funct}{ A combining function \code{flip.npc.methods}: "Fisher", "Liptak", "minP" (i.e. Tippet), "maxT", "sumT" (i.e. direct) , "sumT2" (sum of T^2).
   \code{"Fisher"} combining function is the default.
   See also the section \code{Details}.
 }
   \item{method}{ A method among \code{\link{flip.npc.methods}} or \code{\link{p.adjust.methods}}. By default \code{"maxT"} is used. 
   See also the section \code{Details}.
 }
-  \item{maxalpha}{ Adjusted p-vlaues greather than \code{maxalpha} are forced to 1. It saves computational time when there are many hypotheses under test.
+  \item{maxalpha}{ Adjusted p-vlaues greater than \code{maxalpha} are forced to 1. It saves computational time when there are many hypotheses under test.
 }
   \item{weights}{
 Optional argument that can be used to give certain variables greater weight in the combined test. 
@@ -42,18 +42,18 @@ It works for \code{npc} and \code{flip.adjust} with \code{method}= "maxT", "maxT
   In the latter case, a separate test will be performed for each subset.}
  
  \item{stdSpace}{Ask if the permutation distribution of the test statistic should be standardized or not. The default is \code{FALSE}. The option is applied only 
- if \code{comb.funct} or \code{method} is equal to \code{"maxT"} or \code{"sumT"}, it becomes usefull when test statistics are of different nature (e.g. chisquare and t-test).}
+ if \code{comb.funct} or \code{method} is equal to \code{"maxT"} or \code{"sumT"}, it becomes useful when test statistics are of different nature (e.g. chisquare and t-test).}
   
   \item{...}{further arguments }
   
 }
 
 \details{
-\code{npc} combine the p-values using the combinig functions (and the method) described in Pesarin (2001). It make use of the join space of the permutations. This is usually derived from a call of \code{flip} function.
+\code{npc} combine the p-values using the combining functions (and the method) described in Pesarin (2001). It make use of the join space of the permutations. This is usually derived from a call of \code{flip} function.
 
 \code{flip.adjust} adjusts the p-value for multiplicity (FamilyWise Error Rate).
 When \code{method} is equal to \code{"maxT"}, \code{"maxTstd"} (i.e. max T on \code{scale(permTP)}) or "minP" (i.e. Tippett) it performs the step-down method of Westfall and Young (1993).
- For any other element of \code{flip.npc.methods} (i.e. "Fisher", "Liptak", "sumT" (i.e. direct) or "sumT2" (sum of T^2)) a call to \code{noc} together with a closed testing procedure is used (it make use of  \code{\link[cherry:closed]{cherry:closed}}).
+ For any other element of \code{flip.npc.methods} (i.e. "Fisher", "Liptak", "sumT" (i.e. direct) or "sumT2" (sum of T^2)) a call to \code{npc} together with a closed testing procedure is used (it make use of  \code{\link[cherry:closed]{cherry:closed}}).
  When \code{method} is any among \code{p.adjust.methods} the function \code{stats:p.adjust} or -if weights are provided- \code{someMTP:p.adjust.w} is used.
 }
 
