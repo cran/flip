@@ -44,8 +44,8 @@
 				test <- .rank.dependence.nptest
 		} else if(statTest%in%c("chisq","chisq.separated")){
 			test <- .chisq.dependence.nptest
-		} else if(statTest%in%"Kolmogorov-Smirnov"){
-			test <- .kolmogorov.dependence.nptest
+# 		} else if(statTest%in%"Kolmogorov-Smirnov"){
+# 			test <- .kolmogorov.dependence.nptest
 		} else	{stop("This test statistic is not valid, nothing done."); return()}
 		if(statTest%in%c("Fisher","Wilcoxon","Kruskal-Wallis","ranks","chisq","Kolmogorov-Smirnov")) 
 			if(length(unique(data$Z))>1 ) warning("Covariates Z can not be used in this test. Use strata instread.")

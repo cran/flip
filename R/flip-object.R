@@ -9,8 +9,8 @@ setClassUnion("data.frameOrNULL", c("data.frame", "NULL"))
 setClassUnion("numericOrmatrixOrcharacterOrNULL", c("numeric","matrix", "NULL","character"))
 
 #############da togliere per compilazione (esistno gia in someMTP)
-setClassUnion("numericOrNULL", c("numeric", "NULL"))
-setClassUnion("listOrNULL", c("list", "NULL"))
+#setClassUnion("numericOrNULL", c("numeric", "NULL"))
+#setClassUnion("listOrNULL", c("list", "NULL"))
 
 options(ref.cat="first")
 
@@ -336,151 +336,50 @@ setMethod("plot", "flip.object",
   if(!exists("xlab")) xlab = NULL
   if(!exists("ylab")) ylab=NULL 
   
-   plot.flip <- function(x, y=NULL, main, xlab, ylab,...){
-   #draw <- function(x, main, xlab, ylab,...){
- if (length(x)==1 ){
-	hist(x, breaks=20, ...)
- } else if (length(x)==2 ){
-	plot(x@permT[,1],x@permT[,2],lwd=1,pty="o",xlab=colnames(x@permT)[1],ylab=colnames(x@permT)[2])
-	points(x@permT[1,1],x@permT[1,2],col="red",lwd=3)
-	title("Bivariate Permutation Space") 
- } else { 
-	pc=prcomp(x@permT[,apply(x@permT,2,var)>0],scale. =TRUE,center=FALSE)
-	pc$rotation[,1]=pc$rotation[,1]*sign(pc$x[1,1]) 
-	pc$rotation[,2]=pc$rotation[,2]*sign(pc$x[1,2]) 
-	pc$x[,1]=pc$x[,1]*sign(pc$x[1,1])
-	pc$x[,2]=pc$x[,2]*sign(pc$x[1,2]) 
-	biplot(pc,xlabs=c("obs",rep("*",dim(pc$x)[1]-1)),
-	xlab=paste("PC1 (",round(pc$ sdev [1]^2 /sum(pc$ sdev ^2) *100,2)," %)",sep=""),
-	ylab=paste("PC2 (",round(pc$ sdev [2]^2 /sum(pc$ sdev ^2) *100,2)," %)",sep=""),
-	main= "PCA of Permutation Space" )
-    # lam <- pc$sdev[1:2] #* sqrt(dim(pc$x)[1])
-    # #plot(pc$x[, 1:2]/lam)
-	# pc$x[,1:2]=pc$x[,1:2] / lam
-	# pc$rotation[,1:2]=pc$rotation[,1:2]*lam
-	# plot(pc$x[,1],pc$x[,2],lwd=1,pty="o",xlim=range(pc$x[,1])*1.2,ylim=range(pc$x[,2])*1.2,
-	# xlab=paste("PC1 (",round(pc$ sdev [1]^2 /sum(pc$ sdev ^2) *100,2)," %)",sep=""),
-	# ylab=paste("PC2 (",round(pc$ sdev [2]^2 /sum(pc$ sdev ^2) *100,2)," %)",sep=""),col="gray",pch=21,bg="gray")
-	# points(pc$x[1,1],pc$x[1,2],col="red",lwd=3,pch=21,bg="red")
-	# text(pc$x[1,1]*1.1,pc$x[1,2]*1.1,col="red","Obs")
-	# arrows( 0, 0, 2*pc$rotation[,1], 2*pc$rotation[,2], lwd=1,col="gray")
-	# text(2.1*pc$rotation[,1], 2.1*pc$rotation[,2], rownames(pc$rotation), cex=1.5,col="black")
-	# title("PCA of Permutation Space") 
-	}
+  plot.flip <- function(x, y=NULL, main, xlab, ylab,...){
+    #draw <- function(x, main, xlab, ylab,...){
+    if (length(x)==1 ){
+      hist(x, breaks=20, ...)
+    } else { 
+      pc=prcomp(x@permT,scale. =TRUE,center=FALSE)
+      #obs is always on top-right quadrant:
+      pc$rotation[,1]=pc$rotation[,1]*sign(pc$x[1,1]) 
+      pc$rotation[,2]=pc$rotation[,2]*sign(pc$x[1,2]) 
+      pc$x[,1]=pc$x[,1]*sign(pc$x[1,1])
+      pc$x[,2]=pc$x[,2]*sign(pc$x[1,2]) 
+      
+      pc$x=pc$x[,1:2]/pc$sdev[1:2]      
+      plot(pc$x,
+           xlab=paste("PC1 (",round(pc$ sdev [1]^2 /sum(pc$ sdev ^2) *100,2)," %)",sep=""),
+           ylab=paste("PC2 (",round(pc$ sdev [2]^2 /sum(pc$ sdev ^2) *100,2)," %)",sep=""),
+           main= "PCA of Permutation Space" ,
+           col="darkgrey",
+           bg="orange",pch=21,lwd=1,cex=1,asp=1)
+      
+      points(pc$x[1,1],pc$x[1,2],col="darkgrey",bg="blue",cex=2,lwd=2,pch=21)
+#       mult <- min(  (c(-1,1)%*%range(pc$x[,1]))/(c(-1,1)%*%range(pc$rotation[,1])),
+#                     (c(-1,1)%*%range(pc$x[,2]))/(c(-1,1)%*%range(pc$rotation[,2])))
+#       datapc <- data.frame(v1 = .7 * mult * pc$rotation[,1],
+#                            v2 = .7 * mult * pc$rotation[,2])
+#       
+      datapc=pc$rotation[,1:2]*sqrt(nrow(pc$rotation))*1.3
+      arrows(0,0,datapc[,1],datapc[,2],col=ifelse( p.value(x)<.05,"red","blue"),lwd=2,angle=15,length=.1)
+      text(datapc[,1],datapc[,2],labels=rownames(datapc))
+      text(pc$x[1,1],pc$x[1,2],labels="ObsStat")
+      
+      # lam <- pc$sdev[1:2] #* sqrt(dim(pc$x)[1])
+      # #plot(pc$x[, 1:2]/lam)
+      # pc$x[,1:2]=pc$x[,1:2] / lam
+      # pc$rotation[,1:2]=pc$rotation[,1:2]*lam
+      # plot(pc$x[,1],pc$x[,2],lwd=1,pty="o",xlim=range(pc$x[,1])*1.2,ylim=range(pc$x[,2])*1.2,
+      # xlab=paste("PC1 (",round(pc$ sdev [1]^2 /sum(pc$ sdev ^2) *100,2)," %)",sep=""),
+      # ylab=paste("PC2 (",round(pc$ sdev [2]^2 /sum(pc$ sdev ^2) *100,2)," %)",sep=""),col="gray",pch=21,bg="gray")
+      # points(pc$x[1,1],pc$x[1,2],col="red",lwd=3,pch=21,bg="red")
+      # text(pc$x[1,1]*1.1,pc$x[1,2]*1.1,col="red","Obs")
+      # arrows( 0, 0, 2*pc$rotation[,1], 2*pc$rotation[,2], lwd=1,col="gray")
+      # text(2.1*pc$rotation[,1], 2.1*pc$rotation[,2], rownames(pc$rotation), cex=1.5,col="black")
+      # title("PCA of Permutation Space") 
+    }
   }
-   plot.flip(x,y=NULL, main=main, xlab=xlab, ylab=ylab,...)
+  plot.flip(x,y=NULL, main=main, xlab=xlab, ylab=ylab,...)
 })
-
-# #==========================================================
-# # Graph plot for focus level and inheritance procedures
-# #==========================================================
-# draw <- function(object, alpha=0.05, type = c("focuslevel","inheritance"), names=FALSE, sign.only = FALSE, interactive = FALSE) {
-
-  # # check availablity of packages
-  # require("Rgraphviz") || stop("package \"Rgraphviz\" is not available.")
-
-  # # find ancestors and offspring if missing
-  # if (is.null(object@structure$ancestors)) {     # Infer from sets
-    # sets <- object@subsets
-    # ancestors <- new.env(hash=TRUE)
-    # offspring <- new.env(hash=TRUE)
-    # for (i in 1:length(sets)) {
-      # namei <- names(sets)[i]
-      # for (j in 1:length(sets)) {
-        # namej <- names(sets)[j]
-        # if (i != j && length(sets[[i]]) <= length(sets[[j]]) && all(sets[[i]] %in% sets[[j]])) {
-          # ancestors[[namei]] <- c(ancestors[[namei]], namej)
-          # offspring[[namej]] <- c(offspring[[namej]], namei)
-        # }
-      # }
-    # }
-    # object@structure$ancestors <- as.list(ancestors)
-    # object@structure$offspring <- as.list(offspring)
-  # }
-
-  # # find type if missing
-  # if (missing(type)) 
-    # type <- c("focuslevel","inheritance")
-  # else
-    # type <- match.arg(type)  
-  # type <- type[type %in% names(object@extra)]
-  # if (length(type) < 1)
-    # stop("no focus level or inheritance p-values in object.")
-  # if (length(type) > 1)
-    # stop("both focus level and inheritance p-values in object. Please specify type.")
-
-  # ps <- object@extra[[type]]
-  # significant <- names(object)[ps <= alpha]
-
-  # parents <- ancestors2parents(object@structure$ancestors)
-
-  # # make the graph object
-  # graph <- as.matrix(sapply(names(object), function(node) names(object) %in% parents[[node]]))
-  # rownames(graph) <- colnames(graph) <- names(object)
-  # if (sign.only) {
-    # graph <- graph[significant, significant,drop=FALSE]
-    # if (length(significant)==0)
-      # stop("no significant nodes to plot.")
-  # }
-  # graph <- as(graph, "graphNEL")
-  
-  # nodes <- buildNodeList(graph)
-  # edges <- buildEdgeList(graph)
-  # nAttrs <- list()
-  # eAttrs <- list()
-
-  # # color significant nodes
-  # if (!sign.only) {
-    # signode <- sapply(nodes, name) %in% significant
-    # names(signode) <- names(nodes)
-    # sigedge <- (sapply(edges, from) %in% significant) & (sapply(edges, to) %in% significant)
-    # names(sigedge) <- names(edges)
-    # nodecolor <- ifelse(signode, "black", "#BBBBBB")
-    # nAttrs$color <- nodecolor
-    # nAttrs$fontcolor <- nodecolor
-    
-    # edgecolor <- ifelse(sigedge, "black", "#BBBBBB")
-    # eAttrs$color <- edgecolor
-  # }
-  
-  # # if no names, give the plot numbers in order
-  # # this requires plotting the graph twice
-  # if (!names) {
-    # nAttrs$label <- 1:length(names(nodes))
-    # names(nAttrs$label) <- names(nodes)
-    # pg <- agopen(graph, name="pg", nodeAttrs = nAttrs, edgeAttrs = eAttrs)
-    # x <- getNodeXY(pg)$x
-    # y <- getNodeXY(pg)$y
-    # ordering <- sort.list(order(-y, x))
-    # nAttrs$label <- ordering
-    # names(nAttrs$label) <- names(nodes)
-    # plot(graph, attrs = list(node=list(shape="rectangle")), nodeAttrs = nAttrs, edgeAttrs = eAttrs)
-  # } else
-    # plot(graph, attrs = list(node=list(shape="rectangle")), nodeAttrs = nAttrs, edgeAttrs = eAttrs)
-    
-  # # Make the plot interactive if asked
-  # if (interactive) {
-    # cat("Click in the plot to see name and alias. Press escape to return.\n")
-    # flush.console()
-    # repeat {
-      # p <- locator(n = 1) 
-      # if (is.null(p))
-        # break()
-      # pg <- plot(graph, attrs = list(node=list(shape="rectangle")), nodeAttrs = nAttrs, edgeAttrs = eAttrs)
-      # x <- getNodeXY(pg)$x
-      # y <- getNodeXY(pg)$y
-      # distance <- abs(p$x - x) + abs(p$y - y)
-      # idx <- which.min(distance)
-      # legend("topleft", legend = paste(nAttrs$label[idx], names(object)[idx], alias(object)[idx]), bg = "white", box.lty=0)
-    # }
-  # }
-  
-  # # return a legend if the plot has numbers
-  # if (!names) {
-    # legend <- cbind(name=names(object), alias=alias(object))[sort.list(ordering),]
-    # legend <- data.frame(legend, stringsAsFactors=FALSE)
-  # } else
-    # legend <- NULL
-    
-  # invisible(legend)
-# }

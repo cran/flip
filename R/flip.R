@@ -3,8 +3,8 @@ flip.statTest <-
     c("t", "F", "ANOVA",
 	"Wilcoxon","Kruskal-Wallis", "kruskal", "rank", "Mann-Whitney",
 	"chisq","chisq.separated", "Fisher",
-	"KS", "kolmogorow", "Kolmogorow-Smirnov", 
-	"ad","McNemar", "Sign","sum")
+	#"KS", "kolmogorow", "Kolmogorow-Smirnov", "ad",
+  "McNemar", "Sign","sum")
 
 .get.statTest <- function(statTest){ 
 	if(is(statTest,"function")) return(statTest) else

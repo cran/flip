@@ -11,8 +11,10 @@ Functions for multiplicity corrections
 \code{npc} provides overall tests (i.e. weak FWER control), while \code{flip.adjust} provides adjusted p-values (i.e. strong FWER control).
 }
 \usage{
-npc(permTP, comb.funct = c(flip.npc.methods, p.adjust.methods), subsets=NULL,weights=NULL, stdSpace=FALSE, ...)
-flip.adjust(permTP, method = flip.npc.methods, maxalpha = 1, weights = NULL, stdSpace=FALSE, ...)
+npc(permTP, comb.funct = c(flip.npc.methods, p.adjust.methods), 
+          subsets=NULL,weights=NULL, stdSpace=FALSE, ...)
+flip.adjust(permTP, method = flip.npc.methods, maxalpha = 1, 
+          weights = NULL, stdSpace=FALSE, ...)
 
 flip.npc.methods 
 #    c("Fisher", "Liptak", "minP", "maxT", "maxTstd", "sumT", "sumT2")
@@ -29,7 +31,7 @@ flip.npc.methods
   \item{method}{ A method among \code{\link{flip.npc.methods}} or \code{\link{p.adjust.methods}}. By default \code{"maxT"} is used. 
   See also the section \code{Details}.
 }
-  \item{maxalpha}{ Adjusted p-vlaues greater than \code{maxalpha} are forced to 1. It saves computational time when there are many hypotheses under test.
+  \item{maxalpha}{ Adjusted p-values greater than \code{maxalpha} are forced to 1. It saves computational time when there are many hypotheses under test.
 }
   \item{weights}{
 Optional argument that can be used to give certain variables greater weight in the combined test. 

@@ -12,13 +12,15 @@ The general function for permutation (or rotation) test.
 It allows for multivariate one sample, C>=2 samples and any regression tests. Also the use of covariates (to be fitted in the model but) not under test is allowed.
 }
 \usage{
-flip(Y, X=NULL, Z=NULL, data=NULL, tail = 0, perms = 1000, statTest=NULL, Strata=NULL, flipReturn, testType=c("permutation","rotation"), ...)
+flip(Y, X=NULL, Z=NULL, data=NULL, tail = 0, perms = 1000, statTest=NULL, 
+     Strata=NULL, flipReturn, testType=c("permutation","rotation"), ...)
 
 flip.statTest
-#    c("t", "F", "ANOVA",
-#	"Wilcoxon","Kruskal-Wallis", "kruskal", "rank", "Mann-Whitney","Sign", 
-#	"chisq", "Fisher",
-#	"McNemar","sum")
+#   = c("t", "F", "ANOVA",
+#	"Wilcoxon","Kruskal-Wallis", "kruskal", "rank", "Mann-Whitney",
+#	"chisq","chisq.separated", "Fisher",
+#    "McNemar", "Sign","sum")
+
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -42,13 +44,21 @@ parameter \code{Z} is not considered in this case.
  Also note that when only two levels with one observation per each level are present in each stratum, the problem becomes a paired two-samples problem and hence simplified to a one-sample test.
 }
 \item{statTest}{
-Choose among: \code{"t",} (default) \code{"F", "ANOVA", "Wilcoxon","Kruskal-Wallis","Sign","chisq","chisq.sparated", "Fisher", "mcnemar","sum"}. See also Details section.
+Choose from \code{flip.statTest}. See also Details section.
 }
-\item{flipReturn}{list of objects indicating what will be included in the output. e.g. \code{list(permP=TRUE,permT=TRUE,data=TRUE)}.}
+\item{flipReturn}{list of objects indicating what will be included in the output.
+
+ e.g. \code{list(permP=TRUE,permT=TRUE,data=TRUE)}.}
 \item{testType}{
-by default \code{testType="permutation"},
-\code{rotationTest}: (deprecated, use \code{testType="rotation"}) Logical. If \code{TRUE} resampling is performed through random linear combinations (i.e. a rotation test is performed). This option is usefull when only few permutations are available, that is, minimum reachable significance is hight.}
-\item{\dots}{Further parameter such as (default is reported here) \code{permT.return = TRUE, permP.return = FALSE, permSpace.return = FALSE, permY.return = FALSE} }
+by default \code{testType="permutation"}. In alternative you can choose \code{"rotation"}
+resampling is performed through random linear combinations (i.e. a rotation test is performed). This option is useful when only few permutations are available, that is, minimum reachable significance is hight.
+The old syntax \code{rotationTest=TRUE} is maintained for compatibility  but is deprecated, use \code{testType="rotation"} instead.
+}
+
+\item{\dots}{Further parameters. The followings are still valid but deprecated (use \code{flipReturn} instead): 
+
+\code{permT.return = TRUE, permP.return = FALSE, permSpace.return = FALSE, permY.return = FALSE}. }
+
 }
 \details{
 

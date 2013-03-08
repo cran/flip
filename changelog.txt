@@ -1,0 +1,7 @@
+2.0 (2013.03.08)
+- many test statistics have been implemented: "t", "F", "ANOVA","Wilcoxon","Kruskal-Wallis", "kruskal", "rank", "Mann-Whitney","chisq","chisq.separated", "Fisher","McNemar", "Sign","sum" to function flip()
+- Covariates (orthogonalized residuals) and Strata parameters have been implemented in function flip().
+- plot.flip.object has been ameliorated.
+- minor bugs has been fixed.
+
+
