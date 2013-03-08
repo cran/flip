@@ -1,5 +1,15 @@
-utils::globalVariables(c("testType", "statTest","i","stratum","permSpace"))
+
+#utils::globalVariables(c("testType", "statTest","i","stratum","permSpace"))
 #out <- sys.frame(sys.nframe())
+
+####### deals with NA in permSpace
+.fixPermT <- function(permT){
+  if(any(is.na(permT))){
+    permT[,apply(permT,2,function(x) all(is.na(x)))]=0
+    permT=permT[apply(permT,1,function(x)!any(is.na(x))),,drop=TRUE]
+  }
+  permT
+}
 ######## match the setting for permutation 
 .PermSpaceMatchInput <- function(perms) {
 if (!is.list(perms)) {
@@ -53,7 +63,7 @@ make.signSpace <- function(N,perms) {
 # perms is the number of permutations; if perms > number of all permutations, then compute the complete space
 ############################
 make.permSpace <- function(IDs,perms,return.permIDs=FALSE,testType="permutation",Strata=NULL) {
-	
+  perms=.PermSpaceMatchInput(perms)
 	if(tolower(testType)=="rotation") {
 		perms=.make.RotSpace(IDs,perms)
 		perms$type="rotation"
@@ -73,11 +83,9 @@ make.permSpace <- function(IDs,perms,return.permIDs=FALSE,testType="permutation"
 ##make random permutations of indices
 ##########################
 .make.PermSpace <- function(IDs,perms,return.permIDs=FALSE,Strata=NULL,forceRandom=FALSE){
+  if(is.null(return.permIDs)) return.permIDs=FALSE
      if(length(IDs)==1) IDs=1:IDs
 	if(is.null(Strata)){
-		## if not a permSpace
-			if(!is.list(perms)){
-				perms=.PermSpaceMatchInput(perms)
 				perms$n=length(IDs)
 				allperms=npermutations(IDs)
 				# all permutations if possible
@@ -101,15 +109,14 @@ make.permSpace <- function(IDs,perms,return.permIDs=FALSE,testType="permutation"
 						perms$rotFunct <- function(i) (data$Y[perms$permID[i,],,drop=FALSE])
 						}
 				}
-		  }
 		perms
 	} else #Strata are present
 	{	
 		strataSz=cumsum(table(Strata))
 		strataLable= unique(Strata)
 		space=.make.PermSpace(IDs=IDs[Strata==strataLable[1]],perms=perms,return.permIDs=TRUE,Strata=NULL,forceRandom=TRUE)
-		foreach(stratum = 2:length(strataSz)) %do% {
-		space$permID =cbind(space$permID,.make.PermSpace(IDs=IDs[Strata==strataLable[stratum]],perms=perms,return.permIDs=TRUE,Strata=NULL,forceRandom=TRUE)$permID)
+		foreach(i= 2:length(strataSz)) %do% {
+		space$permID =cbind(space$permID,.make.PermSpace(IDs=IDs[Strata==strataLable[i]],perms=perms,return.permIDs=TRUE,Strata=NULL,forceRandom=TRUE)$permID)
 		}
 	}
 }
@@ -121,9 +128,6 @@ make.permSpace <- function(IDs,perms,return.permIDs=FALSE,testType="permutation"
 ############################
 .make.RotSpace <- function(Y,perms) {
 
-	#only the number of random permutations is provided
-	if (is.numeric(perms)) perms=list( B=perms, seed= NA ) else if(!is.list(perms)) perms= as.list(perms)
-	
 	##then it is a list anyway now
 	perms <- perms[intersect(names(perms),c("B","seed","n","rotFunct"))]
 	if(is.null(perms$n))  perms$n <- length(Y)
@@ -132,8 +136,9 @@ make.permSpace <- function(IDs,perms,return.permIDs=FALSE,testType="permutation"
 	if(is.null(perms$rotFunct))  
 		perms$rotFunct  <- function(i) { #argument is not used now
 			R <- matrix(rnorm(perms$n^2),ncol=perms$n) 
-				#R <- qr.Q(qr(R, LAPACK = TRUE))
-				#does not work properly. same for LAPACK = FALSE
+			#	R <- qr.Q(qr(R, LAPACK = TRUE))
+				#the above does not work properly. same for LAPACK = FALSE.
+      #the following is better:
 			R <- svd(R)$u
  			return(R%*%data$Y)
 		}
@@ -146,9 +151,6 @@ make.permSpace <- function(IDs,perms,return.permIDs=FALSE,testType="permutation"
 ######################################
 .make.SimSpace <- function(covs,perms) {
 
-	#only the number of random permutations is provided
-	if (is.numeric(perms)) perms=list( B=perms, seed= NA ) else if(!is.list(perms)) perms= as.list(perms)
-	
 	##then it is a list anyway now
 	perms <- perms[intersect(names(perms),c("B","seed","n","rotFunct"))]
 	if(is.null(perms$n))  perms$n <- nrow(covs)
@@ -240,6 +242,7 @@ t2p<-function(T, obs.only=TRUE, tail = 1){
 	}
 	else{
 		#oth<-seq(1:length(dim(T)))[-1]
+    T <- .fixPermT(T)
 		B<-nrow(T)
 		P=apply(-T,2,rank,ties.method ="max",na.last="keep")/B
 		P=as.matrix(P)

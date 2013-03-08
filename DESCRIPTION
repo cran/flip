@@ -1,11 +1,11 @@
 Package: flip
 Type: Package
 Title: Multivariate Permutation Tests
-Version: 2.0
+Version: 2.1
 Date: 2013-03-08
 Author: Livio Finos
 Maintainer: Livio Finos <livio@stat.unipd.it>
-Depends: R (>= 2.15.1), methods, foreach, e1071, someMTP, cherry
+Depends: methods, foreach, e1071, someMTP, cherry
 Description: It implements many univariate and multivariate permutation
         (and rotation) tests. Allowed tests: the t one and two samples,
         ANOVA, linear models, Chi Squared test, rank tests (i.e.
@@ -18,7 +18,7 @@ Description: It implements many univariate and multivariate permutation
         Closed Testing (Marcus, 1976).
 License: GPL (>= 2)
 LazyLoad: yes
-Packaged: 2013-03-08 15:52:12 UTC; livio
+Packaged: 2013-05-07 12:42:34 UTC; livio
 NeedsCompilation: no
 Repository: CRAN
-Date/Publication: 2013-03-08 17:36:30
+Date/Publication: 2013-05-07 15:51:06

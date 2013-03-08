@@ -46,12 +46,12 @@ It works for \code{npc} and \code{flip.adjust} with \code{method}= "maxT", "maxT
  \item{stdSpace}{Ask if the permutation distribution of the test statistic should be standardized or not. The default is \code{FALSE}. The option is applied only 
  if \code{comb.funct} or \code{method} is equal to \code{"maxT"} or \code{"sumT"}, it becomes useful when test statistics are of different nature (e.g. chisquare and t-test).}
   
-  \item{...}{further arguments }
+  \item{...}{further arguments. Among them, \code{tail} can be used to set the tail of the alternative for the \code{permTP} (see also \code{\link{flip}}). }
   
 }
 
 \details{
-\code{npc} combine the p-values using the combining functions (and the method) described in Pesarin (2001). It make use of the join space of the permutations. This is usually derived from a call of \code{flip} function.
+\code{npc} combines the p-values using the combining functions (and the method) described in Pesarin (2001). It make use of the join space of the permutations. This is usually derived from a call of \code{flip} function.
 
 \code{flip.adjust} adjusts the p-value for multiplicity (FamilyWise Error Rate).
 When \code{method} is equal to \code{"maxT"}, \code{"maxTstd"} (i.e. max T on \code{scale(permTP)}) or "minP" (i.e. Tippett) it performs the step-down method of Westfall and Young (1993).
@@ -65,11 +65,11 @@ When \code{method} is equal to \code{"maxT"}, \code{"maxTstd"} (i.e. max T on \c
 }
 
 \author{
-livio finos
+livio finos  (livioATstatDOTunipdDOTit)
 }
 
 \references{
-Pesarin (2001) Multivariate Permutation Tests with Applications in Biostatistics. Wiley, Mew York.
+Pesarin (2001) Multivariate Permutation Tests with Applications in Biostatistics. Wiley, New York.
 
 P. H. Westfall and S. S. Young (1993). Resampling-based multiple testing: Examples and methods for p-value adjustment. John Wiley & Sons.
 }

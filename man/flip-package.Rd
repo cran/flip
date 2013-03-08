@@ -34,7 +34,7 @@ livio finos
 Maintainer: livio finos <livio@stat.unipd.it>
 }
 \references{
-Pesarin (2001) Multivariate Permutation Tests with Applications in Biostatistics. Wiley, Mew York.
+Pesarin (2001) Multivariate Permutation Tests with Applications in Biostatistics. Wiley, New York.
 
 I widely borrowed the structure of \code{flip} from library \code{globaltest} of (http://www.bioconductor.org/packages/release/bioc/html/globaltest.html, Authors: J. Goeman and J. Oosting).
 }

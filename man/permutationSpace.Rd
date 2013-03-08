@@ -44,7 +44,7 @@ Livio Finos and Aldo Solari
 }
 
 \references{
-Pesarin (2001) Multivariate Permutation Tests with Applications in Biostatistics. Wiley, Mew York.
+Pesarin (2001) Multivariate Permutation Tests with Applications in Biostatistics. Wiley, New York.
 }
 
 \seealso{

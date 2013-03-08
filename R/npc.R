@@ -15,16 +15,21 @@ npc <- function(permTP, comb.funct = c(flip.npc.methods, p.adjust.methods) ,subs
 	if(comb.funct == "Direct") comb.funct ="sumT"
 	
 	if(is(permTP,"flip.object")){
+    if(!is.null(list(...)$tail)) {  permTP@tail=tail  }
 		nperms = permTP@call$B
 		if(comb.funct %in% c("Fisher", "Liptak", "minP")) {
 			if(!is.null(permTP@permP)){ 
 				permTP=permTP@permP			
 			} else { 
-				if(!is.null(permTP@permT)) { permTP=t2p(permTP@permT,obs.only=FALSE,tail=permTP@tail)} else {print("Joint distribution of p-values not provided. Nothing done."); return()}
+				  if(!is.null(permTP@permT)) { 
+            permTP=t2p(.fixPermT(permTP@permT),obs.only=FALSE,tail=permTP@tail)} else 
+				    {print("Joint distribution of p-values not provided. Nothing done."); return()}
 			} 
 		} else if(comb.funct %in% c("maxT", "sumT", "sumT2")) {
 			if(is.null(permTP@permT)) {print("Joint distribution of p-values not provided. Nothing done."); return()}
-			permTP=.setTail(permTP@permT,tail=.fitTail(permTP@permT,permTP@tail) ) }
+			permTP=.setTail(.fixPermT(permTP@permT),tail=.fitTail(permTP@permT,permTP@tail) ) }
+	} else if(!is.null(list(...)$tail)) {  
+	  permTP=.setTail(.fixPermT(permTP),tail=tail)
 	}
 	
 	
@@ -110,7 +115,7 @@ npc <- function(permTP, comb.funct = c(flip.npc.methods, p.adjust.methods) ,subs
     else if (many.weights && !is.null(names(weights))){
       colnames(permT) <- names(weights)
 	}
-	nVar=ifelse(is.null(subsets), 1, sapply(subsets,length))*ifelse(is.null(weights), 1, sapply(weights,length))
+  nVar={if(is.null(subsets)) 1 else sapply(subsets,length)}*ifelse(is.null(weights), 1, sapply(weights,length))
   }
   if (trace && (many.subsets || many.weights) && L>1) cat("\n")
 	
@@ -119,6 +124,6 @@ npc <- function(permTP, comb.funct = c(flip.npc.methods, p.adjust.methods) ,subs
 	  if(!exists("flipReturn") || is.null(flipReturn)) 
 			flipReturn=list(permT=TRUE,permP=FALSE)
   #build the flip-object
-	out=.getOut(type="npc",res=list(permT=permT,extraInfoPre=list(comb.funct=comb.funct,nVar=nVar)),data=list(),tail=NULL, call=match.call(), flipReturn=flipReturn)
+	out=.getOut(type="npc",res=list(permT=permT,extraInfoPre=list(comb.funct=comb.funct,nVar=nVar)),data=list(),tail=list(...)$tail, call=match.call(), flipReturn=flipReturn)
 	return(out)
 }

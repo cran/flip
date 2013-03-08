@@ -7,10 +7,11 @@ setClassUnion("numericOrmatrixOrNULL", c("numeric","matrix", "NULL"))
 setClassUnion("arrayOrNULL", c("array", "NULL"))
 setClassUnion("data.frameOrNULL", c("data.frame", "NULL"))
 setClassUnion("numericOrmatrixOrcharacterOrNULL", c("numeric","matrix", "NULL","character"))
+setClassUnion("envOrNULL", c("environment", "NULL"))
 
 #############da togliere per compilazione (esistno gia in someMTP)
-#setClassUnion("numericOrNULL", c("numeric", "NULL"))
-#setClassUnion("listOrNULL", c("list", "NULL"))
+setClassUnion("numericOrNULL", c("numeric", "NULL"))
+setClassUnion("listOrNULL", c("list", "NULL"))
 
 options(ref.cat="first")
 
@@ -29,16 +30,18 @@ setClass("flip.object",
     tail = "numericOrmatrixOrcharacterOrNULL",
     #Z = "matrixOrNULL",
     #directional = "logical",
-    data = "listOrNULL"
+    data = "listOrNULL",
+    test = "envOrNULL"
     #model = "character"
   ),
   prototype = list(
-    res = NULL,
+  res = NULL,
 	permP=NULL,
 	permT=NULL,
 	permSpace=NULL,
 	permY=NULL,
-	data=NULL
+	data=NULL,
+  test=NULL
   )
 )
 
@@ -192,7 +195,7 @@ setMethod("[", "flip.object",
     if (!is.null(x@permT)) #if(i <= ncol(x@permT)) 
 		x@permT <- x@permT[,i,drop=FALSE]
     if (!is.null(x@tail)) # if((i <= length(as.vector(x@tail))) || (length(as.vector(x@tail))==1))
-								x@tail <- x@tail[ifelse(length(as.vector(x@tail))==1,1,i)]
+								x@tail <- x@tail[min(length(as.vector(x@tail)),i)]
     #if (!is.null(x@weights)) x@weights <- x@weights[i]
     x
   } else {

@@ -1,5 +1,5 @@
-utils::globalVariables(c("dummy.data.frame",".kolmogorov.dependence.nptest"))
-
+#utils::globalVariables(c("dummy.data.frame",".kolmogorov.dependence.nptest"))
+i<-permSpace<-testType<-statTest<-return.permIDs<-P<-NULL
 
 #####trace of a matrix
 .tr <- function(sigma) sum(diag(sigma))
@@ -16,15 +16,22 @@ utils::globalVariables(c("dummy.data.frame",".kolmogorov.dependence.nptest"))
 	dummyfy=DUM
 	rm(DUM)
 	}
-	if(statTest%in%c("Wilcoxon", "Kruskal-Wallis", "rank")) dummyfy$X=TRUE
-	if(statTest%in%c("AD", "Kolmogorov-Smirnov")) {dummyfy$Y=TRUE ; Yordinal=TRUE} else  Yordinal=FALSE
-	if(statTest%in%c("chisq","chisq.separated")) {dummyfy=list(X=TRUE,Y=TRUE) ; Yordinal <- Xordinal <- TRUE}
-	oldRefCat=options()$ref.cat
-	options(exclude.ref.cat=TRUE)
-	if(statTest%in%c("AD", "Kolmogorov-Smirnov","chisq","chisq.separated")) {
-		options(ref.cat=NULL)
-		options(exclude.ref.cat=FALSE) }
-	
+  if(!is.function(statTest)){
+  	if(statTest%in%c("Wilcoxon", "Kruskal-Wallis", "rank")) dummyfy$X=TRUE
+  	if(statTest%in%c("AD", "Kolmogorov-Smirnov")) {dummyfy$Y=TRUE ; Yordinal=TRUE} else  Yordinal=FALSE
+  	if(statTest%in%c("chisq","chisq.separated")) {
+      dummyfy=list(X=TRUE,Y=TRUE) ; 
+      Yordinal <- Xordinal <-FALSE
+      forceFactor=TRUE} else  forceFactor=FALSE
+  	oldRefCat=options()$ref.cat
+  	options(exclude.ref.cat=TRUE)
+  	if(statTest%in%c("AD", "Kolmogorov-Smirnov","chisq","chisq.separated")) {
+  		options(ref.cat=NULL)
+  		options(exclude.ref.cat=FALSE) }
+  } else { #statTest is a function
+    forceFactor <- Yordinal <- Xordinal <-FALSE
+    oldRefCat=options()$ref.cat
+  }
 	
   # data default
   # if (missing(data) || is.null(data))
@@ -42,6 +49,12 @@ utils::globalVariables(c("dummy.data.frame",".kolmogorov.dependence.nptest"))
     if (is(Y, "formula") || length(Y)==3){ 
 			X <- Y[c(1,3)]
 			Y <- Y[c(1,2)] 
+			if( !( (length(attr(terms(X, data=data), "term.labels"))==0) & 
+               (length(attr(terms(Y, data=data), "term.labels"))==0)  )) {
+			  dup <- attr(terms(Y, data=data), "term.labels") %in% attr(terms(X, data=data), "term.labels")
+			  if (any(dup)) 
+			    Y <- formula(terms(Y,data=data)[!dup])
+			}
     } else X <- ~1 
   
   if (missing(Z)) Z=NULL
@@ -56,15 +69,15 @@ utils::globalVariables(c("dummy.data.frame",".kolmogorov.dependence.nptest"))
 			X <- formula(terms(X,data=data)[!dup])
 	}
   }
-  
+	#browser()  
   # evaluate Y, which may be one of the colnames of data
-  if(is(Y,"formula")) Y <- model.frame(Y, data, drop.unused.levels = TRUE)
+  if(is(Y,"formula")) Y <- model.frame(Y, data, drop.unused.levels = TRUE,na.action=na.pass)
   Y <- eval(Y, data, parent.frame(sys.nframe()))
 
   n <- nrow(Y)
   
   # get Z and X
-  X <- .getAlternative(X, data= if(is.null(data)) data.frame(Y) else data, n,dummyfy=dummyfy)
+  X <- .getAlternative(X, data= if(is.null(data)) data.frame(Y) else data, n,dummyfy=dummyfy,forceFactor=forceFactor)
   attrXassign=attributes(X)$assign
   attrXfactors=attributes(X)$factors
   
@@ -75,12 +88,12 @@ utils::globalVariables(c("dummy.data.frame",".kolmogorov.dependence.nptest"))
 	  Z <- Z[,apply(Z,2,function(x) !all(x==0)),drop=FALSE]
 	  attrXassign=attrXassign[setdiff(colnames(X),colnames(Z))]
 	  X <- X[, setdiff(colnames(X),colnames(Z)),drop=FALSE]
-  }  else 
-	 if((ncol(X)>0) && rotationTest) {
-	 Z=matrix(rep(1,n))
-	 attrXassign=attrXassign[!.getIntercept(X)]
-	 X <- X[, !.getIntercept(X),drop=FALSE]
-	 }
+   }  #else 
+# 	 if((ncol(X)>0) && rotationTest) {
+# 	 Z=matrix(rep(1,n))
+# 	 attrXassign=attrXassign[!.getIntercept(X)]
+# 	 X <- X[, !.getIntercept(X),drop=FALSE]
+# 	 }
   if(!is.null(Strata)){
 	  Strata <- .getStrata(Strata, data, n)
   } else Strata=NULL
@@ -132,24 +145,26 @@ utils::globalVariables(c("dummy.data.frame",".kolmogorov.dependence.nptest"))
   # }
 
   # keep NAs
-  old.na.action <- options()$na.action  
-  options(na.action="na.pass")
+   old.na.action <- options()$na.action  
+    options(na.action="na.pass")
+  #browser() 
   if(dummyfy$Y) {
 		if(Yordinal) Y=as.data.frame(lapply(Y,factor,ordered=TRUE))
-		Y =  .makeContrasts(~.,data=data.frame(Y),excludeRefCat=FALSE,excludeIntercept=TRUE)
+		Y =  .makeContrasts(~.,data=data.frame(Y),excludeRefCat=FALSE,excludeIntercept=TRUE,forceFactor=forceFactor)
   }
+	#browser()
   # restore default
-  options(na.action = old.na.action)
+    options(na.action = old.na.action)
   attributes(X)$assign=attrXassign
   attributes(X)$factors=attrXfactors
-  options(ref.cat =oldRefCat)
+   options(ref.cat =oldRefCat)
   
   if(is.null(Z) && !any(.getIntercept(X)))   X=cbind(1,X)
-  if(statTest%in%c("t", "F")) {
+  if(!is.function(statTest) && statTest%in%c("t", "F")) {
 	data <- list(Y=Y,X=X,Z=Z,Strata=Strata,intercept=FALSE)
 	data <- .orthoZ(data)
 	return(data)
-  } else  return(list(Y=Y,X=X,Z=Z,Strata=Strata,intercept=FALSE))
+  } else  { return(list(Y=Y,X=X,Z=Z,Strata=Strata,intercept=FALSE))}
 }
 
 ##########################
@@ -157,10 +172,19 @@ utils::globalVariables(c("dummy.data.frame",".kolmogorov.dependence.nptest"))
 #######################
 ###TODO : sistemare la funzione .makeContrasts!!!!!! mi pare che non funzioni bene excludeRefCat , 
 #non funziona neppure con interazioni & excludeRefCat (non esclude l'interazione di riferimento!)
-.makeContrasts <- function(formu, data=data,excludeRefCat=options()$exclude.ref.cat,excludeIntercept=FALSE){ 
+.makeContrasts <- function(formu, data=data,excludeRefCat=options()$exclude.ref.cat,
+                           excludeIntercept=FALSE,forceFactor=FALSE){ 
 #excludeRefCat is used only for NOT ordered factors
     # make appropriate contrasts
-    mframe <- model.frame(formu, data=data,na.action = NULL)
+  
+    mframe <- model.frame(formu, data=data,na.action = na.pass)
+   # browser()
+    if(forceFactor){
+      toForce <- names(mframe)[!sapply(mframe, is.factor)]
+      for(i in toForce)    mframe[,i]=factor(mframe[,i])
+      attributes(attributes(mframe)$terms)$dataClasses[toForce]="factor"
+    }
+  #  browser()
 	if(length(mframe)>0){
 		factors <- names(mframe)[sapply(mframe, is.factor)]
 		contrs <- lapply(factors, function(fac) {
@@ -182,7 +206,7 @@ utils::globalVariables(c("dummy.data.frame",".kolmogorov.dependence.nptest"))
 		names(contrs) <- factors
 	}
     # make the design matrix
-    formu <- terms(formu, data=data,na.action = NULL)
+    formu <- terms(formu, data=data,na.action = na.pass)
     # if (length(attr(formu, "term.labels")) == 0)
       # stop("empty formu")
     if(excludeIntercept) attr(formu, "intercept") <- 0 else attr(formu, "intercept") <- 1
@@ -192,7 +216,7 @@ utils::globalVariables(c("dummy.data.frame",".kolmogorov.dependence.nptest"))
 	# for(i in 1:length(ords)) ords[i]=is.ordered(data[,i])
 	# for(i in which(ords)) data[,i]=factor(data[,i],ordered=FALSE)
 	
-    formu <- model.matrix(formu, contrasts.arg=contrs, data=data,na.action = NULL)
+    formu <- model.matrix(formu, contrasts.arg=contrs, data=data,na.action = na.pass)
 	if(exists("factors")) attributes(formu)$factors=factors
 #	if(!all(colnames(formu) == "(Intercept)" ) ) { #if only the intercept is present
 	#	formu <- formu[,colnames(formu) != "(Intercept)",drop=FALSE]    # ugly, but I've found no other way
@@ -212,7 +236,7 @@ utils::globalVariables(c("dummy.data.frame",".kolmogorov.dependence.nptest"))
 ############################
 # Get the X design matrix
 ############################
-.getAlternative <- function(X, data, n,dummyfy=list(Y=TRUE,X=TRUE)) {
+.getAlternative <- function(X, data, n,dummyfy=list(Y=TRUE,X=TRUE),forceFactor=FALSE) {
   # coerce X into a matrix
   if (is.data.frame(X) || is.vector(X)) {
     if (all(sapply(X, function(x) is.numeric(x)| is.logical(x)))) {
@@ -222,15 +246,11 @@ utils::globalVariables(c("dummy.data.frame",".kolmogorov.dependence.nptest"))
     }
   }
   
-  # if (is(X, "ExpressionSet")) {
-    # require("Biobase") || stop("ExpressionSet input but Biobase package not available")
-    # X <- t(exprs(X))
-  # }
   if (is(X, "formula")) {
     # keep NAs
     old.na.action <- options()$na.action  
     options(na.action="na.pass")
-	if(dummyfy$X) X=.makeContrasts(X,data=data)
+	if(dummyfy$X) {  X=.makeContrasts(X,data=data,forceFactor=forceFactor) }
     # restore default
     options(na.action = old.na.action)
 	}
@@ -498,7 +518,7 @@ if(missing(weights)) {weights=NULL; many.weights=FALSE}
 ###########################################################
 
 ################### get results
-.getOut <- function(type="flip",res=NULL, data=NULL, call=NULL, flipReturn=list(permT=TRUE),separatedX=TRUE,extraInfoPre=NULL,extraInfoPost=NULL,...){ 
+.getOut <- function(type="flip",res=NULL, data=NULL, call=NULL, flipReturn=list(permT=TRUE),separatedX=TRUE,extraInfoPre=NULL,extraInfoPost=NULL,test=NULL,...){ 
 	colnames(res$permT)=.getTNames(data$Y,data$X,permT=res$permT) 
 
 		# test statistic and std dev
@@ -506,7 +526,6 @@ if(missing(weights)) {weights=NULL; many.weights=FALSE}
 	#### da rivedere
 	#stDev=apply(res$permT,2,sd,na.rm=TRUE)
 	#pseudoZ=.t2stdt(res$permT)
-
 	p=t2p(res$permT,obs.only=TRUE,tail=res$tail)
 	
 	
@@ -538,16 +557,25 @@ if(missing(weights)) {weights=NULL; many.weights=FALSE}
 	out @permP=if(!is.null(flipReturn$permP))if(flipReturn$permP) t2p(res$permT, obs.only=FALSE,tail=res$tail)
 	out @permT=if(!is.null(flipReturn$permT))if(flipReturn$permT) res$permT
 	out @data = if(!is.null(flipReturn$data))if(flipReturn$data) data
+	out @test = if(!is.null(flipReturn$test))if(flipReturn$test) test
 	if(!is.null(res$tail)) 
 		out @tail = as.matrix(res$tail)
 	out	
 	}
 
 
-.getTNames <- function(Y,X=NULL,permT=NULL){
+.getTNames <- function(Y,X=NULL,permT=NULL,checkUnique=FALSE){
 	if(!is.null(colnames(permT))) {
 		colnames(permT)[colnames(permT)==""] = paste("V",1:ncol(permT),sep="")[colnames(permT)==""]
-		return(colnames(permT))
+		if(checkUnique){
+      temp=table(colnames(permT))
+      for(v in names(temp)[temp>1]){
+        substitute=which(colnames(permT)==v)
+        colnames(permT)[substitute]=paste(v,sep=".",1:length(substitute))
+      }
+		}
+    
+    return(colnames(permT))
 	} else	if(is.null(Y)){ 
 		return(paste("V",1:ncol(permT),sep=""))
 	} else {	
@@ -591,33 +619,58 @@ c("Tobs", paste("T*",1:(nrow(permT)-1),sep=""))
 
 #################################
 .prod.perms <- function(data,perms,testType="permutation"){
-	if(testType=="rotation") {
-		envOrig<-environment(perms$rotFunct)
-		environment(perms$rotFunct) <- sys.frame(sys.parent())
-		permT=rbind(as.vector(t(data$X)%*%data$Y),
-				foreach(i = 1:perms$B,.combine=rbind) %do% { 
-					# R is random matrix of independent standard-normal entries 
-					# Z shall be a random matrix with the same mean and covariance structure as Y 
-					as.vector(t(data$X)%*%perms$rotFunct())
-				}
-			)
-		environment(perms$rotFunct) <- envOrig
-		colnames(permT)=.getTNames(data$Y,data$X)
-		rownames(permT)=.getTRowNames(permT)
-	} else if(testType=="permutation") { #permutation test
+	if(testType=="rotation") return(.prod.perms.P.rotation(data,perms,P=P)) else 
+  if(testType=="permutation"){
+	  if(is.null(perms$permID)){
+	    digitsK=trunc(log10(perms$B))+1
+  		envOrig<-environment(perms$rotFunct)
+  		environment(perms$rotFunct) <- sys.frame(sys.parent())
+      permT=rbind(as.vector(t(data$X)%*%data$Y),
+  				foreach(i = 1:perms$B,.combine=rbind) %do% { 
+  				  if (i%%10==0) {
+  				    cat(rep("\b", 2*digitsK+10), i, " / ", perms$B, sep="")
+  				    flush.console()
+  				  }
+  					# R is random matrix of independent standard-normal entries 
+  					# Z shall be a random matrix with the same mean and covariance structure as Y 
+  					as.vector(t(data$X)%*%perms$rotFunct())
+  				}
+  			)
+  		environment(perms$rotFunct) <- envOrig
+  		colnames(permT)=.getTNames(data$Y,data$X)
+  		rownames(permT)=.getTRowNames(permT)
+	} else { #permutation test uding IDs
 		require(foreach)
-		permT <- foreach( i =1:ncol(data$Y) ,.combine=cbind)	%do% {
+    m=ncol(data$Y)
+		digitsK=trunc(log10(m))+1
+		permT <- foreach( i =1:m,.combine=cbind)	%do% {
+		  if (i%%10==0) {
+		    cat(rep("\b", 2*digitsK+3), i, " / ", m, sep="")
+		    flush.console()
+		  }
 			(matrix(data$Y[rbind(1:perms$n,perms$permID),i],ncol=perms$n,nrow=(perms$B+1)) %*% data$X)}
-	} else {warning("test type not implemented (yet?)"); return(NULL)}
-	permT
+	}
+  } else {warning("test type not implemented (yet?)"); return(NULL)}
+  cat("\n")
+  flush.console()
+  permT
 }
 
 .prod.perms.P <-function(data,perms,testType="permutation",P=P){
 	if(testType=="rotation") return(.prod.perms.P.rotation(data,perms,P=P)) else{
+	  m=ncol(data$Y)
+    digitsK=trunc(log10(m))+1
 		require(foreach)
 		permT <- foreach( i =1:ncol(data$Y) ,.combine=cbind)	%do% {
-			rowSums((matrix(data$Y[rbind(1:perms$n,perms$permID),i],ncol=perms$n,nrow=(perms$B+1))%*%P)^2)
+		  if (i%%10==0) {
+		    cat(rep("\b", 2*digitsK+3), i, " / ", m, sep="")
+		    flush.console()
+		  }
+      rowSums((matrix(data$Y[rbind(1:perms$n,perms$permID),i],ncol=perms$n,nrow=(perms$B+1))%*%P)^2)
 		}
+	  cat("\n")
+	  flush.console()
+	  
 		permT
 	}
 	permT= as.matrix(permT)
@@ -671,22 +724,22 @@ c("Tobs", paste("T*",1:(nrow(permT)-1),sep=""))
 	P <- P$vectors[,(P$values > 1e-1),drop=FALSE] #gli autovalori sono tutti 0 o 1
 	P
 }
-
-.getDummiesGroups <- function(X,excludeRefCat=excludeRefCat) {
-	grps=apply(X,1,paste,collapse="")
-	if(length(unique(grps))<=1) {
-		warning("At least two groups are required.") 
-		return(X)
-	} else if(length(unique(grps))==2 ){
-		return(X) 
-	} else {
-#          dummy.data.frame <- function(x){
-#               colnam=unique(x)
-#               out=outer(x,colnam,"==")*1
-#               colnames(out)=colnam
-#               out
-#          }
-		res=dummy.data.frame(apply(X,1,paste,collapse=""))
-		if(excludeRefCat>0) res <- res[,-excludeRefCat,drop=FALSE]
-	}
-}
+# 
+# .getDummiesGroups <- function(X,excludeRefCat=excludeRefCat) {
+# 	grps=apply(X,1,paste,collapse="")
+# 	if(length(unique(grps))<=1) {
+# 		warning("At least two groups are required.") 
+# 		return(X)
+# 	} else if(length(unique(grps))==2 ){
+# 		return(X) 
+# 	} else {
+# #          dummy.data.frame <- function(x){
+# #               colnam=unique(x)
+# #               out=outer(x,colnam,"==")*1
+# #               colnames(out)=colnam
+# #               out
+# #          }
+# 		res=dummy.data.frame(apply(X,1,paste,collapse=""))
+# 		if(excludeRefCat>0) res <- res[,-excludeRefCat,drop=FALSE]
+# 	}
+# }

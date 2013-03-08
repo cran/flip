@@ -27,6 +27,7 @@
 
 
 .t.rotation.nptest.1sample <- function(){
+  digitsK=trunc(log10(perms$B))+1
 				data <- .orthoZ(data)
 				
 				naRows=apply(is.na(data$Y),1,sum)
@@ -41,11 +42,18 @@
 				
 				permT=rbind(apply(data$Y,2,sum),
 					foreach(i = 1:perms$B,.combine=rbind) %do% { 
+					  if (i%%10==0) {
+					    cat(rep("\b", 2*digitsK+3), i, " / ", perms$B, sep="")
+					    flush.console()
+					  }
 						# R is random matrix of independent standard-normal entries 
 						# Z shall be a random matrix with the same mean and covariance structure as Y 
 						apply(perms$rotFunct(),2,sum)
 					}
 				)
+  cat("\n")
+  flush.console()
+  
 				colnames(permT) = .getTNames(data$Y)
 				rownames(permT)=.getTRowNames(permT)
 				permT=permT/t(sqrt((M2s-t((permT)^2)/Ns)*((Ns)/(Ns-1))))
@@ -54,13 +62,21 @@
 
 
 .prod.perms.rotation <-function(data,perms){
+  digitsK=trunc(log10(perms$B))+1
 	permT=rbind(as.vector(t(data$X)%*%data$Y),
 			foreach(i = 1:perms$B,.combine=rbind) %do% { 
+			  if (i%%10==0) {
+			    cat(rep("\b", 2*digitsK+3), i, " / ", perms$B, sep="")
+			    flush.console()
+			  }
 				# R is random matrix of independent standard-normal entries 
 				# Z shall be a random matrix with the same mean and covariance structure as Y 
 				as.vector(t(data$X)%*%perms$rotFunct())
 			}
 		)
+  cat("\n")
+  flush.console()
+  
 	colnames(permT)=.getTNames(data$Y,data$X)
 	rownames(permT)=.getTRowNames(permT)
 	permT
@@ -71,15 +87,23 @@
 	.Fvector <- function(Y,P) {
 		apply((t(Y)%*%P)^2,1,sum)
 	}
-	permT=rbind(.Fvector(data$Y,P),
+	digitsK=trunc(log10(perms$B))+1
+  permT=rbind(.Fvector(data$Y,P),
 					foreach(i = 1:perms$B,.combine=rbind) %do% { 
-						# R is random matrix of independent standard-normal entries 
+					  if (i%%10==0) {
+					    cat(rep("\b", 2*digitsK+3), i, " / ", perms$B, sep="")
+					    flush.console()
+					  }
+					  # R is random matrix of independent standard-normal entries 
 						# perms$rotFunct() #the function already multiplies the rotation matrix by  Y 
 						# Z shall be a random matrix with the same mean and covariance structure as Y 
 						.Fvector(perms$rotFunct(),P)
 					}
 				)				
-	colnames(permT)=.getTNames(data$Y,data$X)
+	cat("\n")
+	flush.console()
+	
+  colnames(permT)=.getTNames(data$Y,data$X)
 	rownames(permT)=.getTRowNames(permT)
 	permT
 

@@ -13,7 +13,7 @@ It allows for multivariate one sample, C>=2 samples and any regression tests. Al
 }
 \usage{
 flip(Y, X=NULL, Z=NULL, data=NULL, tail = 0, perms = 1000, statTest=NULL, 
-     Strata=NULL, flipReturn, testType=c("permutation","rotation"), ...)
+     Strata=NULL, flipReturn, testType=NULL, ...)
 
 flip.statTest
 #   = c("t", "F", "ANOVA",
@@ -37,7 +37,7 @@ flip.statTest
       that case the intercept is always suppressed.}
     \item{Z}{The part of the design matrix corresponding to the null hypothesis. May be given as a design matrix or as a half \code{\link[stats:formula]{formula}} object (e.g. \code{~a+b}). The default for \code{Z} is \code{~1}, i.e. only an intercept. This intercept may be suppressed, if desired, with \code{Z = ~0}.}    
 	\item{data}{Only used when \code{Y}, \code{X}, or \code{Z} is given in formula form. An optional data frame, list or environment containing the variables used in the formula. If the variables in a formula are not found in \code{data}, the variables are taken from environment(formula), typically the environment from which \code{gt} is called.}
-  \item{tail}{Vector of values -1, 0 or 1 indicating the tail to be used in the test for each column of \code{Y}. I the length of \code{tail} is smaller than number of columns of \code{Y}, the values are recycled.  }
+  \item{tail}{Vector of values -1, 0 or 1 indicating the tail to be used in the test for each column of \code{Y}. \code{tail=1} (-1) means that greater (smaller) values bring more evidence to the alternative hypothesis. \code{tail=0} indicates a two sided alternative. If the length of \code{tail} is smaller than number of columns of \code{Y}, the values are recycled.}
 \item{perms}{The number of permutations to use. The default is \code{perms = 1000}. Alternatively it can be a matrix (i.e. the permutation space) or a list with elements \code{number} and \code{seed}.}
 \item{Strata}{A vector, which unique values identifies strata. This option is used only with \code{testType="permutation"};
 parameter \code{Z} is not considered in this case. 
@@ -90,6 +90,8 @@ The reported statistic for \code{"McNemar"} test is the signed squared root of t
 
 For ordered \code{X}, a stochastic ordering test can be performed using \code{"t","Wilcoxon","sum"} and then combining the separated test using \code{npc}.
 
+When \code{statTest} is a \code{function}, the first argument must be \code{Y}. This same function is ran to observed data \code{Y} and to a number of permuted rows of \code{Y}. The returned value must be a vector of test statistics. Please note that argument \code{tail} must be defined accordingly.
+The default way the rows of \code{Y} are rearranged is through permutation (without strata). More complex permutation strategies can be defined through proper definition of argument \code{perm} (see also \code{\link{permutationSpace}}).
 }
 
 
@@ -101,7 +103,7 @@ livio finos (livioATstatDOTunipdDOTit)
 
 \references{
 For the general framework of univariate and multivariate permutation tests see: 
-Pesarin, F. (2001) Multivariate Permutation Tests with Applications in Biostatistics. Wiley, Mew York.
+Pesarin, F. (2001) Multivariate Permutation Tests with Applications in Biostatistics. Wiley, New York.
 
 for Rotation tests see: 
 Langsrud, O. (2005) Rotation tests, Statistics and Computing, 15, 1, 53-60
@@ -122,19 +124,29 @@ names(Y)=LETTERS[1:5]
 
 data=data.frame(Y,X=X, Z=rnorm(10))
 #testing dependence among Y's and X
-res = flip(Y,~X,data=data)
-res
+(res = flip(Y,~X,data=data))
 #same as:
-res = flip(A+B+C+D+E~X,data=data)
+#res = flip(A+B+C+D+E~X,data=data)
 
-#testing dependence among Y's and X also using covariates
+
+#testing dependence among Y's and X, also using covariates
 res = flip(Y,~X,~Z,data=data)
 res
+#Note that 
+#flip(Y,X=~X,Z=~1,data=data)
+#is different from
+#flip(Y,~X,data=data)
+#since the former is based on orthogonalized residuals of Y and X by Z.
+
+
+#Rotation tests:
+rot=flip(Y,X,Z=~1,testType="rotation") #deprecated: rotationTest=TRUE
+# note the use Z=~1.
+
 
 #Using rank tests:
 res = flip(Y,~X,data=data,statTest="Wilcoxon")
 res
-
 
 #testing symmetry of Y around 0
 Y[,1:2]=Y[,1:2] +2
@@ -150,6 +162,13 @@ flip(A+B+C+D+E~X,data=data,statTest="t",Strata=~S)
 #signed Rank test
 flip(A+B+C+D+E~X,data=data,statTest="Wilcox",Strata=~S)
 
+# tests for categorical data
+data=data.frame(X=rep(0:2,10))
+data=data.frame(X=factor(data$X),Y=factor(rbinom(30,2,.2+.2*data$X)))
+flip(~Y,~X,data=data,statTest="chisq")
+# separated chisq (Finos and Salmaso, 2004. Nonparametric multi-focus analysis for categorical variables. CommStat - T.M.)
+(res.sep=flip(~Y,~X,data=data,statTest="chisq.separated"))
+npc(res.sep,"sumT2") #note that combined test statistic is the same as chisq
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.
