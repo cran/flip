@@ -1,5 +1,5 @@
-3905ae0972207c35ddda296f005e4e75 *ChangeLog
-96654d553115e200b9f37367b20bc01b *DESCRIPTION
+5c78272540a320f6d23a76a1d901ff49 *ChangeLog
+d7dd23af4a01457b511d2eb10ca701f3 *DESCRIPTION
 8cfadd90f35dfb1ec7e91c217cd92bd0 *NAMESPACE
 18f214b106b25a83709eec313e10092b *R/Padjust.R
 d78f5a2c0da224a72649b94b2047a8a7 *R/between.R
@@ -18,11 +18,11 @@ df17625a9119c03ef365122dab7f44ac *R/utilities.R
 9e1726bf2938cc5866331c079a9957b8 *README
 01620a9ae494a777087fc3ad52762361 *man/flip-internal.Rd
 4980a0a2389ffae7efee887ca593f138 *man/flip-package.Rd
-8d0afdc1e410105ddd7c75606fade79e *man/flip.Rd
+cebe89a9997393bab34bb2e78900805b *man/flip.Rd
 16bc6a9bec078caff360e0349eff8399 *man/flip.object-class.Rd
 c636083098da2a5420f28731e6aa1f49 *man/flipMix.Rd
 5c28c42b539677c1fcfedc164b5c7148 *man/multiplicity.Rd
-64bd4bd8bdbba4d8c34df21c6b9cc6a9 *man/permutationSpace.Rd
+87829d8b1c559b7fe7bf4d33ae127c2c *man/permutationSpace.Rd
 2a6f9e9e044a78154d3cfda5936d6f48 *src/Makevars
 8d46d69896a1f1d31ed76035a0e49d67 *src/Makevars.win
 218f583500e389766f48c968e98dbc34 *src/RcppExports.cpp
