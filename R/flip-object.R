@@ -10,8 +10,8 @@ setClassUnion("numericOrmatrixOrcharacterOrNULL", c("numeric","matrix", "NULL","
 setClassUnion("envOrNULL", c("environment", "NULL"))
 
 #############da togliere per compilazione (esistno gia in someMTP)
-setClassUnion("numericOrNULL", c("numeric", "NULL"))
-setClassUnion("listOrNULL", c("list", "NULL"))
+# setClassUnion("numericOrNULL", c("numeric", "NULL"))
+# setClassUnion("listOrNULL", c("list", "NULL"))
 
 options(ref.cat="first")
 
@@ -31,7 +31,7 @@ setClass("flip.object",
     #Z = "matrixOrNULL",
     #directional = "logical",
     data = "listOrNULL",
-    test = "envOrNULL"
+    call.env = "envOrNULL"
     #model = "character"
   ),
   prototype = list(
@@ -41,7 +41,7 @@ setClass("flip.object",
 	permSpace=NULL,
 	permY=NULL,
 	data=NULL,
-  test=NULL
+  call.env=NULL
   )
 )
 
@@ -78,47 +78,6 @@ setMethod("result", "flip.object",
   print(object@res, digits = 4)  
 })
 
-# setGeneric(".result", function(object, ...) standardGeneric(".result"))
-# setMethod(".result", "flip.object",
-  # function(object) 
-    # object@result
-# )
-
-# setGeneric("weights") 
-# setMethod("weights", "flip.object", function(object) {
-  
-  # # base weights based on covariate variance
-  # X <- object@functions$getX()
-  # weights <- colSums(X*X)
-  # if (object@model == "multinomial")
-    # weights <- rowSums(matrix(weights, object@functions$df()[3]))
-  # names(weights) <- object@functions$cov.names()
-                                  
-  # # find weights for specific weights and subsets chosen
-  # if (length(object@subsets) > 0) {
-    # weights <- lapply(object@subsets, function(set) weights[set])
-  # }
-  # if (length(object@weights) > 0) 
-    # if (is.list(weights)) {
-      # weights <- lapply(as.list(1:length(weights)), function(i)
-        # weights[[i]] * object@weights[[i]])
-      # names(weights) <- names(object@weights)  
-    # } else
-      # weights <- lapply(object@weights, function(wts) weights * wts)
-                  
-  # # set the max weight to 1  
-  # if (is.list(weights))
-    # weights <- lapply(weights, function(wts) wts / max(wts))
-  # else
-    # weights <- weights / max(weights)
-      
-  # # reduce a list of length 1 to a vector    
-  # if (is.list(weights) && length(weights) == 1)
-    # weights <- weights[[1]]
-
-  # weights      
-# })
-
 # #==========================================================
 # setGeneric("subsets", function(object, ...) standardGeneric("subsets"))
 # setMethod("subsets", "flip.object", function(object, ...) {
@@ -141,7 +100,7 @@ setMethod("p.value", "flip.object",
 #==========================================================
 #it concatenates flip objects
 #warning("More than one test statistic is imputed, only the first perms space will be stored.")
-c.flip <- function(...) {
+cFlip <- function(...) {
     if(length(list(...))>1){
 		res <- list(...)[[1]]
 		nperms=sapply(list(...),function(xx) nrow(xx@permT))
@@ -151,7 +110,7 @@ c.flip <- function(...) {
 			warning("The tests does not have the same number of permutations, only the first permT will be retained.")
 			res@permT=list(...)[[1]]@permT
 			}
-		res@tail = foreach(i = 1:length(list(...)),.combine=c) %do%  rep(list(...)[[i]]@tail,length.out=ncol(list(...)[[i]]@permT)) 
+		res@tail = foreach(i = 1:length(list(...)),.combine=c) %do%  rep(if(is.null(list(...)[[i]]@tail)) 0 else list(...)[[i]]@tail,length.out=ncol(list(...)[[i]]@permT)) 
 		# migliore questo output, ammettere la presenza di altri elementi in extraInfoPre
 		res@res = foreach(i = 1:length(list(...)),.combine=rbind) %do% list(...)[[i]]@res
 	} else res=list(...)[[1]]
@@ -195,7 +154,7 @@ setMethod("[", "flip.object",
     if (!is.null(x@permT)) #if(i <= ncol(x@permT)) 
 		x@permT <- x@permT[,i,drop=FALSE]
     if (!is.null(x@tail)) # if((i <= length(as.vector(x@tail))) || (length(as.vector(x@tail))==1))
-								x@tail <- x@tail[min(length(as.vector(x@tail)),i)]
+								x@tail <- x@tail[min(length(as.vector(x@tail)),1)]
     #if (!is.null(x@weights)) x@weights <- x@weights[i]
     x
   } else {
@@ -215,7 +174,7 @@ setMethod("[[", "flip.object",
 setMethod("length", "flip.object", 
             function(x) 
 {
-  dim(x@res)[1]
+  nrow(x@res)
 })
 
 
@@ -386,3 +345,43 @@ setMethod("plot", "flip.object",
   }
   plot.flip(x,y=NULL, main=main, xlab=xlab, ylab=ylab,...)
 })
+
+
+
+# #==========================================================
+# # get elements of flip-object
+# #==========================================================
+
+getFlip <- function(obj,element){
+  if(element%in%slotNames(obj))
+    return(slot(obj,element))
+  
+  if(element%in%names(obj@res))
+    return(obj@res[element])
+  
+  if(tolower(element)%in%c(tolower("Adjust:"),tolower("Adjust")))
+    return(obj@res[grep("Adjust",colnames(obj@res))])
+    
+  if(!is.null(obj@data)){
+    if(element%in%names(obj@data))
+      return(obj@data[element])
+    
+    if(substr(element,1,5)=="data$")
+      return(obj@data[substr(element,6,nchar(element))])
+    
+  } else if(!is.null(obj@call.env$data)){
+    
+    if(element%in%names(obj@data))
+      return(obj@data[element])
+    
+    if(substr(element,1,5)=="data$")
+      return(obj@data[substr(element,6,nchar(element))])    
+    
+  }
+  
+  if(substr(element,1,4)=="res$")
+    return(obj@res[substr(element,5,nchar(element))])
+  
+  if(element%in%c("nperms","perms","B"))
+    return(obj@permSpace$B)
+}

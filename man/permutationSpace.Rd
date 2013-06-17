@@ -12,7 +12,6 @@ These functions handle the orbit (i.e. permutation space) of permutation tests.
 }
 \description{
 \code{make.permSpace} computes the \code{perms} x n matrix of ids used for test of dependence. \code{make.signSpace} computes the \code{perms} x n vector of +1 and -1 used for symmetry test.
-In both functions the element corresponding to the observed data is on the first row.
 
 \code{t2p} computes the (possibily multivariate) space of p-values from the space of test statistic.
 }

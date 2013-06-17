@@ -1,5 +1,5 @@
 #utils::globalVariables(c("dummy.data.frame",".kolmogorov.dependence.nptest"))
-i<-permSpace<-testType<-statTest<-return.permIDs<-P<-NULL
+i<-permSpace<-testType<-statTest<-return.permIDs<-P<-idClust<-test <-j <- otherParams<- NULL
 
 #####trace of a matrix
 .tr <- function(sigma) sum(diag(sigma))
@@ -178,13 +178,11 @@ i<-permSpace<-testType<-statTest<-return.permIDs<-P<-NULL
     # make appropriate contrasts
   
     mframe <- model.frame(formu, data=data,na.action = na.pass)
-   # browser()
     if(forceFactor){
       toForce <- names(mframe)[!sapply(mframe, is.factor)]
       for(i in toForce)    mframe[,i]=factor(mframe[,i])
       attributes(attributes(mframe)$terms)$dataClasses[toForce]="factor"
     }
-  #  browser()
 	if(length(mframe)>0){
 		factors <- names(mframe)[sapply(mframe, is.factor)]
 		contrs <- lapply(factors, function(fac) {
@@ -250,7 +248,7 @@ i<-permSpace<-testType<-statTest<-return.permIDs<-P<-NULL
     # keep NAs
     old.na.action <- options()$na.action  
     options(na.action="na.pass")
-	if(dummyfy$X) {  X=.makeContrasts(X,data=data,forceFactor=forceFactor) }
+	if(is.list(dummyfy) && dummyfy$X) {  X=.makeContrasts(X,data=data,forceFactor=forceFactor) }
     # restore default
     options(na.action = old.na.action)
 	}
@@ -484,7 +482,7 @@ if(missing(weights)) {weights=NULL; many.weights=FALSE}
     }     else if (length(tail) != ncol(permT)) {
 		attrs=attributes(tail)$center
         tail <- rep(tail,len = ncol(permT))
-		attributes(tail)$center=rep(attrs,len = ncol(permT))
+    if(!is.null(attrs)) attributes(tail)$center=rep(attrs,len = ncol(permT))
 		}
 	tail
 }
@@ -518,7 +516,8 @@ if(missing(weights)) {weights=NULL; many.weights=FALSE}
 ###########################################################
 
 ################### get results
-.getOut <- function(type="flip",res=NULL, data=NULL, call=NULL, flipReturn=list(permT=TRUE),separatedX=TRUE,extraInfoPre=NULL,extraInfoPost=NULL,test=NULL,...){ 
+.getOut <- function(type="flip",res=NULL, data=NULL, call=NULL, flipReturn=list(permT=TRUE),
+                    separatedX=TRUE,extraInfoPre=NULL,extraInfoPost=NULL,call.env=NULL,...){ 
 	colnames(res$permT)=.getTNames(data$Y,data$X,permT=res$permT) 
 
 		# test statistic and std dev
@@ -557,7 +556,7 @@ if(missing(weights)) {weights=NULL; many.weights=FALSE}
 	out @permP=if(!is.null(flipReturn$permP))if(flipReturn$permP) t2p(res$permT, obs.only=FALSE,tail=res$tail)
 	out @permT=if(!is.null(flipReturn$permT))if(flipReturn$permT) res$permT
 	out @data = if(!is.null(flipReturn$data))if(flipReturn$data) data
-	out @test = if(!is.null(flipReturn$test))if(flipReturn$test) test
+	out @call.env = if(is.null(flipReturn$call.env) || flipReturn$call.env) call.env
 	if(!is.null(res$tail)) 
 		out @tail = as.matrix(res$tail)
 	out	
@@ -605,11 +604,8 @@ if(missing(weights)) {weights=NULL; many.weights=FALSE}
 .getTRowNames <- function(permT){
 c("Tobs", paste("T*",1:(nrow(permT)-1),sep=""))
 }
-.testedWithin <- function(data,testedWithin){
-		data$coeffWithin = data$coeffWithin[,testedWithin]
-		data$se = data$se[,testedWithin]
-		data$df.mod = data$df.mod[,testedWithin]
-		}
+
+
 		
 		
 ###################################
@@ -619,8 +615,7 @@ c("Tobs", paste("T*",1:(nrow(permT)-1),sep=""))
 
 #################################
 .prod.perms <- function(data,perms,testType="permutation"){
-	if(testType=="rotation") return(.prod.perms.P.rotation(data,perms,P=P)) else 
-  if(testType=="permutation"){
+  if(testType%in%c("permutation","rotation"))  {
 	  if(is.null(perms$permID)){
 	    digitsK=trunc(log10(perms$B))+1
   		envOrig<-environment(perms$rotFunct)
@@ -644,38 +639,55 @@ c("Tobs", paste("T*",1:(nrow(permT)-1),sep=""))
     m=ncol(data$Y)
 		digitsK=trunc(log10(m))+1
 		permT <- foreach( i =1:m,.combine=cbind)	%do% {
-		  if (i%%10==0) {
-		    cat(rep("\b", 2*digitsK+3), i, " / ", m, sep="")
-		    flush.console()
-		  }
+# 		  if (i%%10==0) {
+# 		    cat(rep("\b", 2*digitsK+5), i, " / ", m, sep="")
+# 		    flush.console()
+# 		  }
 			(matrix(data$Y[rbind(1:perms$n,perms$permID),i],ncol=perms$n,nrow=(perms$B+1)) %*% data$X)}
 	}
   } else {warning("test type not implemented (yet?)"); return(NULL)}
-  cat("\n")
-  flush.console()
+	cat(rep("\b", 2*digitsK+3));  flush.console()
   permT
 }
 
 .prod.perms.P <-function(data,perms,testType="permutation",P=P){
-	if(testType=="rotation") return(.prod.perms.P.rotation(data,perms,P=P)) else{
-	  m=ncol(data$Y)
-    digitsK=trunc(log10(m))+1
-		require(foreach)
-		permT <- foreach( i =1:ncol(data$Y) ,.combine=cbind)	%do% {
-		  if (i%%10==0) {
-		    cat(rep("\b", 2*digitsK+3), i, " / ", m, sep="")
-		    flush.console()
-		  }
-      rowSums((matrix(data$Y[rbind(1:perms$n,perms$permID),i],ncol=perms$n,nrow=(perms$B+1))%*%P)^2)
-		}
-	  cat("\n")
-	  flush.console()
-	  
-		permT
-	}
-	permT= as.matrix(permT)
-	colnames(permT)= colnames(data$Y)
-	permT
+  if(testType%in%c("permutation","rotation"))  {
+    if(is.null(perms$permID)){
+      digitsK=trunc(log10(perms$B))+1
+      envOrig<-environment(perms$rotFunct)
+      environment(perms$rotFunct) <- sys.frame(sys.parent())
+      permT=rbind(as.vector(apply((t(data$Y)%*%P)^2,1,sum)),
+                  foreach(i = 1:perms$B,.combine=rbind) %do% { 
+                    if (i%%10==0) {
+                      cat(rep("\b", 2*digitsK+10), i, " / ", perms$B, sep="")
+                      flush.console()
+                    }
+                    # R is random matrix of independent standard-normal entries 
+                    # Z shall be a random matrix with the same mean and covariance structure as Y 
+                    apply((t(perms$rotFunct())%*%P)^2,1,sum)
+                  }
+      )
+      environment(perms$rotFunct) <- envOrig
+      colnames(permT)=.getTNames(data$Y)
+      rownames(permT)=.getTRowNames(permT)
+    } else { #permutation test using IDs
+      require(foreach)
+      m=ncol(data$Y)
+      digitsK=trunc(log10(m))+1
+      permT <- foreach(i =1:m,.combine=cbind)	%do% {
+        # 		  if (i%%10==0) {
+        # 		    cat(rep("\b", 2*digitsK+5), i, " / ", m, sep="")
+        # 		    flush.console()
+        # 		  }
+        rowSums((matrix(data$Y[rbind(1:perms$n,perms$permID),i],ncol=perms$n,nrow=(perms$B+1))%*%P)^2)
+      }
+      permT=cbind(permT)
+      colnames(permT)=.getTNames(data$Y)
+      rownames(permT)=.getTRowNames(permT)
+    }
+  } else {warning("test type not implemented (yet?)"); return(NULL)}
+  cat(rep("\b", 2*digitsK+3));  flush.console()
+  permT
 }
 
 

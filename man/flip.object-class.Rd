@@ -6,6 +6,8 @@
 \alias{plot}
 \alias{size}
 \alias{result}
+\alias{getFlip}
+\alias{cFlip}
 \alias{flip.object-class}
 \alias{[,flip.object-method}
 \alias{[[,flip.object-method}
@@ -27,10 +29,13 @@
 \alias{numericOrmatrixOrNULL}
 \alias{arrayOrNULL}
 \alias{data.frameOrNULL}
-\title{Class "flip.object" for storing the result of the function flip}
+\title{Class "flip.object" (and related functions) for storing the result of the function flip and flipMix}
 \description{	
 The class flip.object is the output of a call to
-\code{\link{flip}}. It stores the information needed for various diagnostic plots. }
+\code{\link{flip}}, \code{\link{flipMix}}, \code{\link{npc}} and \code{\link{flip.adjust}}. 
+It stores the information needed for various diagnostic plots. 
+Specific functions to deal with these objects are also documented here.}
+
 \section{Objects from the Class}{
 Objects can be created by calls of the form \code{new("flip.object", ...)}.
 }
@@ -65,6 +70,24 @@ Objects can be created by calls of the form \code{new("flip.object", ...)}.
 	 }
 }
 
+\usage{
+getFlip(obj, element)
+
+cFlip(...)
+}
+%- maybe also 'usage' for other objects documented here.
+\arguments{
+    \item{obj}{Any \code{flip-object}}
+    \item{element}{Character string of either slot names of \code{obj} (i.e. \code{"res","call","permP","permT","permSpace","permY","tail","data","call.env"}), elements of slot \code{obj@data} (e.g.
+\code{"Y","X","Z","Strata"}) or columns of 
+\code{obj@res} (usually \code{"Test","Stat","tail","p-value"}).
+Specific uses: 
+\code{"Adjust:"} returns all columns of adjusted p-values in \code{obj@res}.
+Any among \code{"nperms","perms","B"} return the number of permutation used.
+}
+    \item{...}{\code{flip-object}s to be concatenated.}
+}
+
 \author{livio finos}
 \examples{
 showClass("flip.object")
@@ -73,6 +96,9 @@ y=matrix(rnorm(50),10,5)
 colnames(y)=c("X1","X2","Y1","Y2","Y3")
 res=flip(y)
 
+## Sort by p-values
+sort(res)
+
 ## Selecting tests
 res[1:2]
 #same as
@@ -80,8 +106,18 @@ res["X"]
 #different from (it selects tests having "1" or "2" in the name)
 res[c("1","2")]
 
+## Concatenates two flip-objects
+cFlip(res[1:2],res[5])
+
+
 #plotting results
 plot(flip(y)[1:2])
 
+#Get any slot of the flip-object. eg the permutation space:
+getFlip(res,"permT")
+#Get any element of the list obj@data. eg Y:
+getFlip(res,"Y")
+#Get any columns of the results table: obj@res. eg Statistic (choose among colnames(obj@res) ):
+getFlip(res,"Stat")
 }
 \keyword{classes}

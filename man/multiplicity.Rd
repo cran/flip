@@ -61,11 +61,12 @@ When \code{method} is equal to \code{"maxT"}, \code{"maxTstd"} (i.e. max T on \c
 
 
 \value{
- The function returns an object of class \code{\link{flip.object-class}}.
+ The function returns an object of class \code{\link{flip.object-class}} (and the use of \code{getFlip(obj,"Adjust")}.
 }
 
+
 \author{
-livio finos  (livioATstatDOTunipdDOTit)
+livio finos  (livioATstatDOTunipdDOTit) and Aldo Solari.
 }
 
 \references{
@@ -91,12 +92,14 @@ summary(p2)
 
 
 
-flip.adjust(res,"maxT")
+res=flip.adjust(res,"maxT")
 
-flip.adjust(res,"BH")
+res=flip.adjust(res,"BH")
 ##same as 
 #p.adjust(res,"BH")
 
+## now try
+getFlip(res,"Adjust")
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.

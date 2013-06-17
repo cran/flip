@@ -1,8 +1,9 @@
 flip.adjust <- function (permTP, method = flip.npc.methods, maxalpha=1, weights=NULL, stdSpace=FALSE, ...) {
     
 	##TODO: here is case sensitive, while in npc it is not. here is so for compatibility with p.adjust. shall we change?
-	method <- match.arg(method,c(p.adjust.methods,flip.npc.methods))
-	
+  if(length(method)>1) method <- "maxT" else 
+    method <- match.arg(method,c(p.adjust.methods,flip.npc.methods))
+  
 	
 	##TODO: add some check for names(weights) compatibility. 
 	##TODO: exclude missing names (eg permTP=permTP[names(weights)]
@@ -38,8 +39,12 @@ flip.adjust <- function (permTP, method = flip.npc.methods, maxalpha=1, weights=
 		}
 		#fit it to the flip-object
 		permTP@res=cbind(permTP@res,adjs)
-		colnames(permTP@res)[length(colnames(permTP@res))]=paste("Adjust:",method,sep="")	
-	
+	  if(paste("Adjust:",method,sep="")%in%colnames(permTP@res)){
+      i=2
+      while(paste("Adjust:",method,".",i,sep="")%in%colnames(permTP@res)) i=i+1
+        newname=paste("Adjust:",method,".",i,sep="")
+	  } else newname=paste("Adjust:",method,sep="")
+    colnames(permTP@res)[length(colnames(permTP@res))]=newname
 		return(permTP)
 			
 	} else { # not a flip.object, return a vector

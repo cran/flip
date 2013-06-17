@@ -4,4 +4,11 @@
 - plot.flip.object has been ameliorated.
 - minor bugs has been fixed.
 
+2.1 (2013.04.08)
+- minor bugs has been fixed.
+- increased flexibility in definition of custom test statistics.
+
+2.2 (2013.06.15)
+- tests for fixed effects in mixed models.
+
 

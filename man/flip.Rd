@@ -4,7 +4,7 @@
 
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{
-The main function for univariate tests under permutation framework
+The main function for univariate and multivariate testing under a permutation (and rotation) framework
 }
 \description{
 The general function for permutation (or rotation) test.
@@ -47,7 +47,6 @@ parameter \code{Z} is not considered in this case.
 Choose from \code{flip.statTest}. See also Details section.
 }
 \item{flipReturn}{list of objects indicating what will be included in the output.
-
  e.g. \code{list(permP=TRUE,permT=TRUE,data=TRUE)}.}
 \item{testType}{
 by default \code{testType="permutation"}. In alternative you can choose \code{"rotation"}
@@ -55,9 +54,15 @@ resampling is performed through random linear combinations (i.e. a rotation test
 The old syntax \code{rotationTest=TRUE} is maintained for compatibility  but is deprecated, use \code{testType="rotation"} instead.
 }
 
-\item{\dots}{Further parameters. The followings are still valid but deprecated (use \code{flipReturn} instead): 
+\item{\dots}{Further parameters. The followings are still valid but deprecated:
+ 
+\code{permT.return = TRUE, permP.return = FALSE, permSpace.return = FALSE, permY.return = FALSE}. Use \code{flipReturn} instead. 
 
-\code{permT.return = TRUE, permP.return = FALSE, permSpace.return = FALSE, permY.return = FALSE}. }
+\code{dummyfy} a named list of logical values (eg. \code{list(X=TRUE,Y=TRUE)})
+
+\code{rotationTest= TRUE}. Deprecated, use \code{testType='rotation'} instead. 
+
+}
 
 }
 \details{
@@ -95,7 +100,7 @@ The default way the rows of \code{Y} are rearranged is through permutation (with
 }
 
 
-\value{The function returns an object of class \code{flip.object}. 
+\value{An object of class \code{flip.object}. 
 Several operations and plots can be made from this object. See also \code{\link{flip.object-class}}.}
 \author{
 livio finos (livioATstatDOTunipdDOTit)
@@ -112,15 +117,19 @@ Langsrud, O. (2005) Rotation tests, Statistics and Computing, 15, 1, 53-60
 \seealso{
 The permutation spaces on which the test is based: \code{\link{permutationSpace}} function and useful functions associated with that object.
 
-Multiplicity correction and Overall test: \code{\link{npc}}.
+Multiplicity correction: \code{\link{flip.adjust}} and Global test: \code{\link{npc}}.
 }
 
 \examples{
-X=rep(0:1,5)
+Y=matrix(rnorm(50),10,5)
+colnames(Y)=LETTERS[1:5]
+Y[,1:2]=Y[,1:2] +2
+res = flip(Y)
+res
+plot(res)
 
-Y=data.frame(matrix(rnorm(50),10,5))
+X=rep(0:1,5)
 Y=Y+matrix(X*2,10,5)
-names(Y)=LETTERS[1:5]
 
 data=data.frame(Y,X=X, Z=rnorm(10))
 #testing dependence among Y's and X
@@ -166,9 +175,19 @@ flip(A+B+C+D+E~X,data=data,statTest="Wilcox",Strata=~S)
 data=data.frame(X=rep(0:2,10))
 data=data.frame(X=factor(data$X),Y=factor(rbinom(30,2,.2+.2*data$X)))
 flip(~Y,~X,data=data,statTest="chisq")
-# separated chisq (Finos and Salmaso, 2004. Nonparametric multi-focus analysis for categorical variables. CommStat - T.M.)
+# separated chisq (Finos and Salmaso, 2004. Nonparametric multi-focus analysis 
+# for categorical variables. CommStat - T.M.)
 (res.sep=flip(~Y,~X,data=data,statTest="chisq.separated"))
 npc(res.sep,"sumT2") #note that combined test statistic is the same as chisq
+
+
+# User-defined test statistic:
+my.fun <- function(Y){
+  summary(lm(Y~X))$coeff[1,"Pr(>|t|)"]
+}
+X<- matrix(rep(0:2,10))
+Y <- matrix(rnorm(30))
+flip(Y=Y,X=X,statTest=my.fun)
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.

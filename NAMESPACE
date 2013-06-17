@@ -13,12 +13,12 @@ importFrom(stats, coefficients, fitted.values, residuals, weights, alias,
 
 import(methods)
 
-exportClasses(
-     flip.object,
+
+exportClasses(flip.object,
 numericOrmatrixOrNULL,arrayOrNULL,data.frameOrNULL
 )
 
 exportMethods("[", "[[", show, result, p.value, length, names, "names<-", 
 	sort, size, hist, plot,summary, p.adjust)
 
-export(flip, npc,flip.adjust,make.signSpace,make.permSpace,npermutations,allpermutations,t2p)
+export(flip, flipMix, obs2coeffWithin, npc,flip.adjust,make.signSpace,make.permSpace,npermutations,allpermutations,t2p,cFlip, getFlip)

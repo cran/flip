@@ -25,7 +25,8 @@ flip.statTest <-
 }
 
 #########################
-flip <- function(Y, X=NULL, Z=NULL, data=NULL, tail = 0, perms = 1000, statTest=NULL, Strata=NULL, flipReturn, testType=NULL, ...) {
+flip <- function(Y, X=NULL, Z=NULL, data=NULL, tail = 0, perms = 1000, statTest=NULL, 
+                 Strata=NULL, flipReturn, testType=NULL, ...) {
 
   if(is.null(statTest) ) if(is.null(list(...)$separatedX)   || list(...)$separatedX)   { statTest="t" } else statTest="F"
     statTest <- .get.statTest(statTest)
@@ -93,7 +94,8 @@ flip <- function(Y, X=NULL, Z=NULL, data=NULL, tail = 0, perms = 1000, statTest=
   }
   res <- test$test()
 	#build the flip-object
-	res=.getOut(res=res,data=data, call=call, flipReturn=flipReturn,test=test)
+  res$call=call
+	res=.getOut(res=res,data=data, call=call, flipReturn=flipReturn,call.env=test)
   return(res)
 }
 
@@ -119,7 +121,7 @@ flip <- function(Y, X=NULL, Z=NULL, data=NULL, tail = 0, perms = 1000, statTest=
     })
     flush.console()
     cat("\n")
-    colnames(permT)=.getTNames(,,permT=permT,checkUnique=TRUE)
+    colnames(permT)=.getTNames(Y,,permT=permT,checkUnique=TRUE)
     rownames(permT)=.getTRowNames(permT)		  
     res=list(permT=permT,perms=perms,tail=tail,extraInfoPre=list(Test="Custom"))
   }

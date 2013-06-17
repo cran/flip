@@ -136,10 +136,10 @@ make.permSpace <- function(IDs,perms,return.permIDs=FALSE,testType="permutation"
 	if(is.null(perms$rotFunct))  
 		perms$rotFunct  <- function(i) { #argument is not used now
 			R <- matrix(rnorm(perms$n^2),ncol=perms$n) 
-			#	R <- qr.Q(qr(R, LAPACK = TRUE))
+				R <- qr.Q(qr(R, LAPACK = TRUE))
 				#the above does not work properly. same for LAPACK = FALSE.
       #the following is better:
-			R <- svd(R)$u
+			#R <- svd(R)$u
  			return(R%*%data$Y)
 		}
 

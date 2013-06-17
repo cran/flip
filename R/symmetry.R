@@ -22,7 +22,7 @@
 		if (testType=="rotation") warning("Rotations are not allowed for Mc Nemar test, permutations will be used instead.")
 		 ## permutation test
 		test <- .mcnemar.symmetry.nptest
-	}
+	} else  {stop("This test statistic is not valid, nothing done."); return()}
   environment(test) <- sys.frame(sys.nframe())	
   out <- sys.frame(sys.nframe())
 }
@@ -97,3 +97,38 @@
 	colnames(permT) = .getTNames(data$Y,permT=permT)
 	return(list(permT=permT,perms=perms,tail=tail,extraInfoPre=list(Test="McNemar")))
 }
+
+#############ROTATION
+
+.t.rotation.nptest.1sample <- function(){
+  digitsK=trunc(log10(perms$B))+1
+  data <- .orthoZ(data)
+  
+  naRows=apply(is.na(data$Y),1,sum)
+  if(any(naRows>0)) {
+    warning("Some NA on Y. In rotationTest observations are excluded row-wise")
+    Y=Y[naRows==0,,drop=FALSE]
+  }
+  Ns=nrow(data$Y)
+  M2s=apply(data$Y^2,2,sum)
+  
+  perms <- make.permSpace(1:Ns,perms,testType=testType)
+  
+  permT=rbind(apply(data$Y,2,sum),
+              foreach(i = 1:perms$B,.combine=rbind) %do% { 
+                if (i%%10==0) {
+                  cat(rep("\b", 2*digitsK+3), i, " / ", perms$B, sep="")
+                  flush.console()
+                }
+                # R is random matrix of independent standard-normal entries 
+                # Z shall be a random matrix with the same mean and covariance structure as Y 
+                apply(perms$rotFunct(),2,sum)
+              }
+  )
+  cat(rep("\b", 2*digitsK+3));  flush.console()
+  
+  colnames(permT) = .getTNames(data$Y)
+  rownames(permT)=.getTRowNames(permT)
+  permT=permT/t(sqrt((M2s-t((permT)^2)/Ns)*((Ns)/(Ns-1))))
+  return(list(permT=permT,perms=perms,tail=tail,extraInfoPre=list(Test="t")))
+}	
