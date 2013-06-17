@@ -10,8 +10,8 @@ setClassUnion("numericOrmatrixOrcharacterOrNULL", c("numeric","matrix", "NULL","
 setClassUnion("envOrNULL", c("environment", "NULL"))
 
 #############da togliere per compilazione (esistno gia in someMTP)
-# setClassUnion("numericOrNULL", c("numeric", "NULL"))
-# setClassUnion("listOrNULL", c("list", "NULL"))
+ setClassUnion("numericOrNULL", c("numeric", "NULL"))
+ setClassUnion("listOrNULL", c("list", "NULL"))
 
 options(ref.cat="first")
 
@@ -101,21 +101,23 @@ setMethod("p.value", "flip.object",
 #it concatenates flip objects
 #warning("More than one test statistic is imputed, only the first perms space will be stored.")
 cFlip <- function(...) {
+  res=list(...)[[1]]
     if(length(list(...))>1){
-		res <- list(...)[[1]]
 		nperms=sapply(list(...),function(xx) nrow(xx@permT))
 		if(length(unique(nperms))==1) 
-			res@permT = foreach(i = 1:length(list(...)),.combine=cbind) %do%  list(...)[[i]]@permT
+        for(i in 2:length(list(...)))  res@permT=cbind(res@permT,list(...)[[i]]@permT)
 		else{
 			warning("The tests does not have the same number of permutations, only the first permT will be retained.")
 			res@permT=list(...)[[1]]@permT
 			}
-		res@tail = foreach(i = 1:length(list(...)),.combine=c) %do%  rep(if(is.null(list(...)[[i]]@tail)) 0 else list(...)[[i]]@tail,length.out=ncol(list(...)[[i]]@permT)) 
+		res@tail = as.vector(unlist(sapply(1:length(list(...)), function(i)  rep(if(is.null(list(...)[[i]]@tail)) 0 else list(...)[[i]]@tail,length.out=ncol(list(...)[[i]]@permT))
+                      )))
 		# migliore questo output, ammettere la presenza di altri elementi in extraInfoPre
-		res@res = foreach(i = 1:length(list(...)),.combine=rbind) %do% list(...)[[i]]@res
-	} else res=list(...)[[1]]
+	  for(i in 2:length(list(...)))  res@permT=cbind(res@permT,list(...)[[i]]@permT)
+		for(i in 2:length(list(...)))  res@res=rbind(res@res,list(...)[[i]]@res)
+	}
 	res
-  }
+}
 
 #==========================================================
 setGeneric("size", function(object, ...) standardGeneric("size"))
@@ -303,7 +305,7 @@ setMethod("plot", "flip.object",
     if (length(x)==1 ){
       hist(x, breaks=20, ...)
     } else { 
-      pc=prcomp(x@permT,scale. =TRUE,center=FALSE)
+      pc=prcomp(x@permT,scale. =FALSE,center=FALSE)
       #obs is always on top-right quadrant:
       pc$rotation[,1]=pc$rotation[,1]*sign(pc$x[1,1]) 
       pc$rotation[,2]=pc$rotation[,2]*sign(pc$x[1,2]) 
@@ -311,7 +313,9 @@ setMethod("plot", "flip.object",
       pc$x[,2]=pc$x[,2]*sign(pc$x[1,2]) 
       
       pc$x=pc$x[,1:2]/pc$sdev[1:2]      
-      plot(pc$x,
+      datapc=pc$rotation[,1:2]*sqrt(nrow(pc$rotation))*1.3
+      
+      plot(pc$x, xlim=range(c(pc$x[,1],datapc[,1])), ylim=range(c(pc$x[,2],datapc[,2])),
            xlab=paste("PC1 (",round(pc$ sdev [1]^2 /sum(pc$ sdev ^2) *100,2)," %)",sep=""),
            ylab=paste("PC2 (",round(pc$ sdev [2]^2 /sum(pc$ sdev ^2) *100,2)," %)",sep=""),
            main= "PCA of Permutation Space" ,
@@ -319,12 +323,7 @@ setMethod("plot", "flip.object",
            bg="orange",pch=21,lwd=1,cex=1,asp=1)
       
       points(pc$x[1,1],pc$x[1,2],col="darkgrey",bg="blue",cex=2,lwd=2,pch=21)
-#       mult <- min(  (c(-1,1)%*%range(pc$x[,1]))/(c(-1,1)%*%range(pc$rotation[,1])),
-#                     (c(-1,1)%*%range(pc$x[,2]))/(c(-1,1)%*%range(pc$rotation[,2])))
-#       datapc <- data.frame(v1 = .7 * mult * pc$rotation[,1],
-#                            v2 = .7 * mult * pc$rotation[,2])
-#       
-      datapc=pc$rotation[,1:2]*sqrt(nrow(pc$rotation))*1.3
+
       arrows(0,0,datapc[,1],datapc[,2],col=ifelse( p.value(x)<.05,"red","blue"),lwd=2,angle=15,length=.1)
       text(datapc[,1],datapc[,2],labels=rownames(datapc))
       text(pc$x[1,1],pc$x[1,2],labels="ObsStat")

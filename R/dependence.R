@@ -129,7 +129,7 @@ if(statTest%in%c("Fisher","Wilcoxon","Kruskal-Wallis","ranks","chisq","Kolmogoro
 		data$X=scale(data$X,scale=FALSE)
 		data$Y=scale(data$Y,scale=FALSE)
 		P=.get.eigenv.proj.mat(data)
-		permT=.prod.perms.P(data,perms,P)
+		permT=.prod.perms.P(data,perms,testType=testType,P)
 		permT=.prod2F(permT,data)
 		permT=permT *ncol(data$X)/(nrow(data$Y)-ncol(data$X)) 
 		permT = (1+ permT^-1)^-1 *(nrow(data$Y)-1)
@@ -207,14 +207,13 @@ if(statTest%in%c("Fisher","Wilcoxon","Kruskal-Wallis","ranks","chisq","Kolmogoro
   perms <- make.permSpace(1:N,perms,return.permIDs=return.permIDs,testType=testType, Strata=data$Strata)
   b=NULL  
   data$X=data$X[,which(!.getIntercept(data$X)),drop=FALSE]
-  require(foreach)
   
   data$Y=apply(data$Y,2,scale,scale=FALSE)
   
   if(ncol(data$X)>1) { #multiple predictors
     #browser()
       notNA=!is.na(data$Y)
-      tObs= foreach(i = 1:ncol(data$Y),.combine=c) %do% {
+      tObs= as.vector(unlist(sapply(1:ncol(data$Y),function(i){
         x=apply(data$X[notNA[,i],,drop=FALSE],2,scale,scale=FALSE)
         ei=eigen(t(x)%*%x)
         if(any(ei$values<=1E-10))
@@ -223,14 +222,15 @@ if(statTest%in%c("Fisher","Wilcoxon","Kruskal-Wallis","ranks","chisq","Kolmogoro
           #equivalent to t(data$Y[notNA[,i],i])%*%x%*% (ei$vectors %*% diag(ei$values^-1) %*% t(ei$vectors) ) %*%t(x)%*%data$Y[notNA[,i],i] #explained dev
           #but faster
         } 
-      }
+      })))
       rm(notNA)
 
-      permT=rbind(tObs,
-                  foreach(b =1:perms$B,.combine=rbind) %do% {
+      permT=matrix(,perms$B+1,length(tObs))
+      permT[1,]=tObs
+      for(b  in (1:perms$B)) {
                     Yperm=perms$rotFunct(b)
                     notNA=!is.na(Yperm)
-                    foreach(i = 1:ncol(data$Y),.combine=c) %do% {
+                    permT[b+1,]=as.vector(unlist(sapply(1:ncol(data$Y),function(i) {
                       if(is.na(tObs[i])) NA else 
                         {x=apply(data$X[notNA[,i],,drop=FALSE],2,scale,scale=FALSE)
                          ei=eigen(t(x)%*%x)
@@ -240,31 +240,30 @@ if(statTest%in%c("Fisher","Wilcoxon","Kruskal-Wallis","ranks","chisq","Kolmogoro
                              # equivalent to : t(Yperm[notNA[,i],i])%*%x%*% (ei$vectors %*% diag(ei$values^-1) %*% t(ei$vectors) ) %*%t(x)%*%Yperm[notNA[,i],i] #explained dev
                            }
                       }
-                    }
+                    })))
                   }
-      )
       rm(tObs)
       permT=t( t(permT)/(apply(data$Y,2,var,na.rm=TRUE)*(apply(notNA,2,sum)-1) -t(permT)) / ( (ncol(data$X)) / (apply(notNA,2,sum) - ncol(data$X)-1) )  )
       
       colnames(permT) = .getTNames(data$Y,permT=permT)
   } else { #only one predictor
       notNA=!is.na(data$Y)
-      tObs= foreach(i = 1:ncol(data$Y),.combine=c) %do% {
+      tObs= as.vector(unlist(sapply(1:ncol(data$Y),function(i) {
         if(length(unique(data$X[notNA[,i],]))==1) NA  #X is constant
         else t(scale(data$X[notNA[,i],]))%*%data$Y[notNA[,i],i]
-      }
+      })))
       rm(notNA)
-      permT=rbind(tObs,
-              foreach(b =1:perms$B,.combine=rbind) %do% {
-                Yperm=perms$rotFunct()
+      permT=matrix(,perms$B+1,length(tObs))
+      permT[1,]=tObs
+      for(b in (1:perms$B)){
+                Yperm=perms$rotFunct(b)
                 notNA=!is.na(Yperm)
-                foreach(i = 1:ncol(data$Y),.combine=c) %do% { 
+                permT[b+1,]=as.vector(unlist(sapply(1:ncol(data$Y),function(i){ 
                   if(is.na(tObs[i]) || (length(unique(data$X[notNA[,i],]))==1) ) 
                     NA #X is constant
                   else t(scale(data$X[notNA[,i],]))%*%Yperm[notNA[,i],i] 
-                }
+                })))
               }
-      )
       rm(tObs)
       permT <- t(t(permT)*sqrt(apply(notNA,2,sum)-1))
       #browser() #want to transform to t stat

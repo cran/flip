@@ -25,7 +25,7 @@ Version: \tab 1.1\cr
 Date: \tab 2012-02-05\cr
 License: \tab GPL <=2\cr
 LazyLoad: \tab yes\cr
-Depends: \tab methods, foreach, e1071, someMTP, cherry\cr
+Depends: \tab methods, e1071, someMTP, cherry\cr
 }
 }
 \author{
@@ -36,7 +36,7 @@ Maintainer: livio finos <livio@stat.unipd.it>
 \references{
 Pesarin (2001) Multivariate Permutation Tests with Applications in Biostatistics. Wiley, New York.
 
-I widely borrowed the structure of \code{flip} from library \code{globaltest} of (http://www.bioconductor.org/packages/release/bioc/html/globaltest.html, Authors: J. Goeman and J. Oosting).
+The structure of \code{flip} is widely borrowed from library \code{globaltest} by J. Goeman and J. Oosting in bioconductor.org.
 }
 \keyword{ package }
 

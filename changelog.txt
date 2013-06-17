@@ -11,4 +11,6 @@
 2.2 (2013.06.15)
 - tests for fixed effects in mixed models.
 
-
+2.3 (2013.07.22)
+- dependence to library(foreach) is now avoided.
+- minor bugs fixed.

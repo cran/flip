@@ -47,6 +47,7 @@ parameter \code{Z} is not considered in this case.
 Choose from \code{flip.statTest}. See also Details section.
 }
 \item{flipReturn}{list of objects indicating what will be included in the output.
+
  e.g. \code{list(permP=TRUE,permT=TRUE,data=TRUE)}.}
 \item{testType}{
 by default \code{testType="permutation"}. In alternative you can choose \code{"rotation"}
@@ -56,7 +57,9 @@ The old syntax \code{rotationTest=TRUE} is maintained for compatibility  but is 
 
 \item{\dots}{Further parameters. The followings are still valid but deprecated:
  
-\code{permT.return = TRUE, permP.return = FALSE, permSpace.return = FALSE, permY.return = FALSE}. Use \code{flipReturn} instead. 
+\code{permT.return = TRUE, permP.return = FALSE}, 
+
+\code{permSpace.return = FALSE, permY.return = FALSE}. Use \code{flipReturn} instead. 
 
 \code{dummyfy} a named list of logical values (eg. \code{list(X=TRUE,Y=TRUE)})
 

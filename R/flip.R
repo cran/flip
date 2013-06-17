@@ -106,19 +106,22 @@ flip <- function(Y, X=NULL, Z=NULL, data=NULL, tail = 0, perms = 1000, statTest=
                            testType=NULL, ...) {
   test<- function() {
     N=nrow(Y)
-    perms <- make.permSpace(1:N,perms,return.permIDs=FALSE,Strata=Strata)
+    if(is.null(N)) N=length(N)
+    perms <- make.permSpace(N,perms,return.permIDs=FALSE,Strata=Strata)
     perms$rotFunct=NULL
     digitsK=trunc(log10(perms$B))+1
     
-    permT=rbind(
-      statTest(Y),
-      foreach(i = 1:perms$B,.combine=rbind) %do% { 
-        if (i%%10==0) {
-          cat(rep("\b", 2*digitsK+3), i, " / ", perms$B, sep="")
-          flush.console()
-        }
-      statTest(Y[sample(perms$n),,drop=FALSE] )
-    })
+    
+    obs=statTest(Y)
+    permT=matrix(,perms$B+1,length(obs))
+    permT[1,]=obs
+    for(i in 2:(1+perms$B))
+      {permT[i,]=statTest(Y[sample(perms$n),,drop=FALSE] )
+              if (i%%10==0) {
+                cat(rep("\b", 2*digitsK+3), i, " / ", perms$B, sep="")
+                flush.console()
+              } 
+    }
     flush.console()
     cat("\n")
     colnames(permT)=.getTNames(Y,,permT=permT,checkUnique=TRUE)
@@ -130,4 +133,3 @@ flip <- function(Y, X=NULL, Z=NULL, data=NULL, tail = 0, perms = 1000, statTest=
   out <- sys.frame(sys.nframe())
   return(out)
 }
- 

@@ -44,7 +44,10 @@
 		permT=.prod2t(permT,data)
 		permT
 	}
-	permT = foreach(i = 1:ncol(data$Y),.combine=cbind) %do%  uni.test(i,data)
+	permT = matrix(, perms$B+1,ncol(data$Y))
+  for(i in 1:ncol(data$Y)) permT[,i]=uni.test(i,data)
+  colnames(permT)=.getTNames(data$Y)
+  rownames(permT)=.getTRowNames(permT)
 	return(list(permT=permT,perms=perms,tail=tail,extraInfoPre=list(Test="w-t")))
 }
 	
@@ -56,15 +59,10 @@
 		return(NULL)
 	} else {
 	
-	#traces = apply(data$covs,1,function(cov) .tr(cov))
-	#for( i in 1:nrow(data$covs)) data$covs[i,,]=data$covs[i,,]/traces[i]
-	covs=foreach(i = 1:nrow(data$covs),.combine=rbind) %do% {as.vector(data$covs[i,,] +data$Su)}
-	covs=array(covs,dim(data$covs))
-	
+  covs=data$covs
+  for(i in 1:nrow(data$covs)) covs=data$covs[i,,] +data$Su
+  
 	perms <- make.permSpace(covs,perms,testType="Simulation")	
-	# data$X <- (1/sqrt(traces))*data$X
-	# data$Y <- (1/sqrt(traces))*data$Y
-	# data$Z <- (1/sqrt(traces))*data$Z
 	
 	permT=.trace.sim(data,perms)
 	rownames(permT)=.getTRowNames(permT)
@@ -81,12 +79,11 @@
 	rm(PZ,PZX)
 	dfratio=(nrow(data$Y)- ncol(data$X) -ncol(data$Z) )/ncol(data$X)
 	.stat <- function(y) .tr(t(y)%*%PZXPZ %*% y)/.tr(t(y)%*%HZX%*%y) * dfratio
-	permT=rbind(.stat(data$Y) ,
-	foreach(i = 1:perms$B,.combine=rbind) %do% { 
-		.stat(perms$rotFunct())
-	})
+  
+	permT=matrix(,perms$B+1,1)
+  permT[1,]=.stat(data$Y)
+	for(i in 1:perms$B) permT[i+1,]=.stat(perms$rotFunct())
 	colnames(permT)="F-trace"
-	
 	permT
 }
 
@@ -105,7 +102,10 @@
     permT=.prod2F(permT,data)
     permT
   }
-  permT = foreach(i = 1:ncol(data$Y),.combine=cbind) %do%  uni.test(i,data)
+  permT = matrix(,perms$B+1,ncol(data$Y))
+  for(i in 1:ncol(data$Y)) permT[,i]= uni.test(i,data)
+  colnames(permT)=.getTNames(data$Y)
+  rownames(permT)=.getTRowNames(permT)
   return(list(permT=permT,perms=perms,tail=tail,extraInfoPre=list(Test="w-F")))
 }
 
@@ -127,8 +127,12 @@
 			linComb=otherParams$linComb
 			
 		data$Y =cbind(data$Y,comb=data$Y%*%linComb)
-		data$W=1/sqrt(   foreach(j= 1:nrow(data$covs),.combine=rbind) %do% {  cov= data$Su + data$covs[j,,] ; c(diag(data$Su + data$covs[j,,]), diag(t(linComb)%*%cov%*%linComb))} )
-		rownames(data$W)=rownames(data$Y)	
+		data$W=array(,dim(data$Y))
+		rownames(data$W)=rownames(data$Y)  
+		for(j in 1:nrow(data$covs)) {
+		  cov= data$Su + data$covs[j,,]
+      data$W[j,]=1/sqrt(c(diag(cov), diag(t(linComb)%*%cov%*%linComb)))
+		}	
 	} else{
 		if(is.null(otherParams$linComb)) {
 			if(is.null(otherParams$whichpcs)) whichpcs=1:(1+(ncol(data$Y)==2)) else whichpcs=otherParams$whichpcs
@@ -142,8 +146,12 @@
 		covMulti=array(t(apply(data$covs,1,function(cov){ diag(t(linComb)%*%cov%*%linComb)})),c(nrow(data$covs),ncol(linComb)))
 		SuMulti=sapply(1:ncol(comb),function(i) .estimateSuMultiILS(Y=comb[,i,drop=FALSE],Z=as.matrix(cbind(data$X,data$Z)), S=array(covMulti[,i,drop=FALSE],c(nrow(comb),1,1))))
 		data$Y =cbind(data$Y,comb=comb)
-		data$W=1/sqrt(   foreach(j= 1:nrow(data$covs),.combine=rbind) %do% {  cov= data$Su + data$covs[j,,] ; c(diag(data$Su + data$covs[j,,]), covMulti[j,]+SuMulti)} )
-		rownames(data$W)=rownames(data$Y)
+		data$W=array(,dim(data$Y))
+		rownames(data$W)=rownames(data$Y)  
+		for(j in 1:nrow(data$covs)) {
+		  cov= data$Su + data$covs[j,,]
+		  data$W[j,]=1/sqrt(c(diag(cov), covMulti[j,]+SuMulti))
+		}	
 		colnames(data$W)=colnames(data$Y)
 	}
 data

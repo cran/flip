@@ -4,8 +4,7 @@ flipMix <- function(modelWithin,X=NULL,Z=NULL,units, perms=1000, data=NULL, tail
                     replaceNA.coeffWithin.se=0, ...) {
 
   otherParams= list(...)
-  require(foreach)
-	if(missing(flipReturn)||is.null(flipReturn)) 
+  if(missing(flipReturn)||is.null(flipReturn)) 
   flipReturn=list(permT=TRUE,permP=FALSE,permSpace=FALSE,data=FALSE)
   
   if(is.null(statTest) ) if(is.null(otherParams$separatedX)   || otherParams$separatedX)   { statTest="t" } else statTest="F"
@@ -38,22 +37,47 @@ flipMix <- function(modelWithin,X=NULL,Z=NULL,units, perms=1000, data=NULL, tail
 		}
 	names(data)[names(data)=="coeffWithin"]="Y"
 		if(length(unique(unlist(data$X)))>1){ # if X is not a constant perform dependence.nptest
-			res=foreach (i = 1:length(statTest),.combine=cFlip) %do% {
-				ressub=.between.nptest(data, perms=perms, statTest=statTest[i], tail = tail, testType=testType, ...)
-				out=ressub$test()
-        #una pezza estetica:
-        if(ncol(data$X)==1)
-          colnames(out$permT)=paste(colnames(out$permT), "_|_",colnames(data$X),sep="")
-				out=.getOut(res=out,data=data, call=call, flipReturn=flipReturn,test=ressub)
-			}
+		  res=.between.nptest(data, perms=perms, statTest=statTest[1], tail = tail, testType=testType, ...)
+		  out=res$test()
+		  #una pezza estetica:
+		  if(ncol(data$X)==1)
+		    colnames(out$permT)=paste(colnames(out$permT), "_|_",colnames(data$X),sep="")
+		  res=.getOut(res=out,data=data, call=call, flipReturn=flipReturn,test=ressub)
+      if(length(statTest)>1){
+        for(i in 2:length(statTest)) {
+          ressub=.between.nptest(data, perms=perms, statTest=statTest[1], tail = tail, testType=testType, ...)
+          out=ressub$test()
+          #una pezza estetica:
+          if(ncol(data$X)==1)
+            colnames(out$permT)=paste(colnames(out$permT), "_|_",colnames(data$X),sep="")
+          out=.getOut(res=out,data=data, call=call, flipReturn=flipReturn,test=ressub)
+          res=cFlip(res,out)          
+        }
+      }
 		} else { #otherwise perform a symmetry test
-			res=foreach (i = 1:length(statTest),.combine=cFlip) %do% {
-			  sd=sqrt(   foreach(j= 1:nrow(data$covs),.combine=rbind) %do% {  cov= diag(data$Su) + diag(data$covs[j,,])} )
-				data$Y <- data$Y/sd
+		  data$W=data$Y
+		  data$W[,]=NA
+		  for(j in 1:nrow(data$covs)){
+		    data$W[j,]=1/sqrt(diag(data$Su) + diag(data$covs[j,,]))
+		  }
+      for(j in 1:nrow(data$covs)) {  data$W[j,] = diag(data$Su) + diag(data$covs[j,,])} 
+		  res=.symmetry.nptest(data, perms=perms, statTest=statTest,  tail = tail,testType="t",...)
+		  out=res$test()
+		  res=.getOut(res=out,data=data, call=call, flipReturn=flipReturn,call.env=res)
+      
+      if(length(statTest)>1){
+			for (i in 2:length(statTest)){
+				data$W=matrix(,dim(data$Y))
+        dimnames(data$W)=dimnames(data$Y)
+		    for(j in 1:nrow(data$covs)){  
+          data$W[j,]=1/sqrt(diag(data$Su) + diag(data$covs[j,,]))
+		    }
 			  ressub=.symmetry.nptest(data, perms=perms, statTest=statTest,  tail = tail,testType="t",...)
 				out=ressub$test()
-				out=.getOut(res=out,data=data, call=call, flipReturn=flipReturn,call.env=ressub)
+				out=.getOut(res=out,data=data, call=call, flipReturn=flipReturn,call.env=res)
+        res=cFlip(res,out)
 			}
 		}
-return(out)
+	}
+return(res)
 }

@@ -6,8 +6,6 @@ importFrom(someMTP, p.adjust.w)
 
 importFrom(cherry, closed)
 
-importFrom(foreach, foreach)
-
 importFrom(stats, coefficients, fitted.values, residuals, weights, alias, 
 	model.matrix, p.adjust, p.adjust.methods)
 

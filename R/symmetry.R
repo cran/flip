@@ -30,22 +30,27 @@
 #####################################
 
 .t.symmetry.nptest <- function(){
-  Ns=apply(!is.na(data$Y),2,sum)
-  M2s=apply(data$Y^2,2,sum,na.rm=TRUE)
-  data$Y[is.na(data$Y)]=0
-  perms <- make.signSpace(nrow(data$Y),perms)
   
   if(is.null(data$W)){
-    permT <- rbind(rep(1,perms$n),perms$permID) %*% data$Y
+    Ns=apply(!is.na(data$Y),2,sum)
+    data$Y[is.na(data$Y)]=0
   } else { ### W can be a vector of length nrow(Y) or a matrix of same dim of Y
-    permT <- rbind(rep(1,perms$n),perms$permID) %*% (data$W * data$Y)
-    
+    Ns=apply((!is.na(data$Y) & !is.na(data$W)),2,sum)
+    data$Y[(is.na(data$Y) | is.na(data$W))]=0
+    data$Y=data$W * data$Y
+#     perms <- make.signSpace(nrow(data$Y),perms)
+#     permT <- rbind(rep(1,perms$n),perms$permID) %*% (data$W * data$Y)
   }
-  
+  perms <- make.signSpace(nrow(data$Y),perms)
+  permT <- rbind(rep(1,perms$n),perms$permID) %*% data$Y
   colnames(permT) = .getTNames(data$Y)
   permT = rbind(permT,-permT[nrow(permT):1,,drop=FALSE])
   rownames(permT)=.getTRowNames(permT)
-  if(statTest=="t") permT=permT/t(sqrt((M2s-t((permT)^2)/Ns)*((Ns)/(Ns-1))))
+  
+  if(statTest=="t") {
+      M2s=apply(data$Y^2,2,sum)
+    permT=permT/t(sqrt((M2s-t((permT)^2)/Ns)*((Ns)/(Ns-1))))
+  }
   colnames(permT) = .getTNames(data$Y,permT=permT)
   return(list(permT=permT,perms=perms,tail=tail,extraInfoPre=list(Test=statTest)))
 }
@@ -101,7 +106,6 @@
 #############ROTATION
 
 .t.rotation.nptest.1sample <- function(){
-  digitsK=trunc(log10(perms$B))+1
   data <- .orthoZ(data)
   
   naRows=apply(is.na(data$Y),1,sum)
@@ -113,22 +117,23 @@
   M2s=apply(data$Y^2,2,sum)
   
   perms <- make.permSpace(1:Ns,perms,testType=testType)
+  digitsK=trunc(log10(perms$B))+1
   
-  permT=rbind(apply(data$Y,2,sum),
-              foreach(i = 1:perms$B,.combine=rbind) %do% { 
-                if (i%%10==0) {
-                  cat(rep("\b", 2*digitsK+3), i, " / ", perms$B, sep="")
-                  flush.console()
-                }
-                # R is random matrix of independent standard-normal entries 
-                # Z shall be a random matrix with the same mean and covariance structure as Y 
-                apply(perms$rotFunct(),2,sum)
-              }
-  )
+  permT=matrix(,perms$B+1, ncol(data$Y))
+  permT[1,]=colSums(data$Y)
+  for(i in 2:(1+perms$B)) { 
+      if (i%%10==0) {
+        cat(rep("\b", 2*digitsK+3), i, " / ", perms$B, sep="")
+        flush.console()
+      }
+      # R is random matrix of independent standard-normal entries 
+      # Z shall be a random matrix with the same mean and covariance structure as Y 
+      permT[i,] = colSums(perms$rotFunct())
+  }
   cat(rep("\b", 2*digitsK+3));  flush.console()
   
   colnames(permT) = .getTNames(data$Y)
   rownames(permT)=.getTRowNames(permT)
   permT=permT/t(sqrt((M2s-t((permT)^2)/Ns)*((Ns)/(Ns-1))))
   return(list(permT=permT,perms=perms,tail=tail,extraInfoPre=list(Test="t")))
-}	
+}

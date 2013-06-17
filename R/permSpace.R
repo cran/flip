@@ -115,9 +115,8 @@ make.permSpace <- function(IDs,perms,return.permIDs=FALSE,testType="permutation"
 		strataSz=cumsum(table(Strata))
 		strataLable= unique(Strata)
 		space=.make.PermSpace(IDs=IDs[Strata==strataLable[1]],perms=perms,return.permIDs=TRUE,Strata=NULL,forceRandom=TRUE)
-		foreach(i= 2:length(strataSz)) %do% {
+		for(i in 2:length(strataSz))
 		space$permID =cbind(space$permID,.make.PermSpace(IDs=IDs[Strata==strataLable[i]],perms=perms,return.permIDs=TRUE,Strata=NULL,forceRandom=TRUE)$permID)
-		}
 	}
 }
 
@@ -157,12 +156,21 @@ make.permSpace <- function(IDs,perms,return.permIDs=FALSE,testType="permutation"
 	if(is.null(perms$B))  perms$B <- 1000
 	#if(is.null(perms$seed) || is.na(perms$seed) )  perms$seed <- round(runif(1)*1000)
 	perms$p=ncol(covs)
-	perms$rots=foreach(i = 1:nrow(covs),.combine=rbind) %do% {ei=eigen(covs[i,,]); ei$values[ei$values<0]=0; diag(sqrt(ei$values))%*%t(ei$vectors)}
+	ei=eigen(covs[1,,]); 
+	ei$values[ei$values<0]=0; 
+	temp=diag(sqrt(ei$values))%*%t(ei$vectors)
+  perms$rots=matrix(,nrow(covs),length(temp))
+  perms$rots[1,]=temp
+  rm(temp,ei)  
+	for(i in 2:nrow(covs)) {
+    ei=eigen(covs[i,,]); 
+    ei$values[ei$values<0]=0; 
+    perms$rots[i,]=diag(sqrt(ei$values))%*%t(ei$vectors)
+	}
 	#now covs is a list of length n
-	#perms$rots = foreach(i = 1:length(covs),.combine=rbind) %do% covs[[i]]
 	rm(covs)
 	if(is.null(perms$rotFunct))  
-		perms$rotFunct  <- function(i) { #argument is not used now
+		perms$rotFunct  <- function(i) { #argument is not used yet
 			R <- rnorm(nrow(perms$rots))*perms$rots
 			R <- array(R,c(perms$p,perms$n,perms$p))
 			R <- apply(R,c(2,3),sum)

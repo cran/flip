@@ -200,18 +200,22 @@ out
   namesBetween=setdiff(unique(c(colnames(X), colnames(Z))),"(Intercept)")
   
   if(nrow(X)==length(as.vector(units))){
-    require(foreach)
-    X=foreach(i = 1:ncol(X),.combine=cbind) %do% {
-      as.matrix(table(units,X[,i]))[,-1,drop=FALSE]
+    XX=c()
+    for(i in 1:ncol(X)){
+      XX=cbind(XX, as.matrix(table(units,X[,i]))[,-1,drop=FALSE])
     }
+    X=XX
+    rm(XX)
     namesBetween=c(namesBetween,colnames(X))
   }
   
   if((!is.null(Z)) && (nrow(Z)==length(as.vector(units)))){
-    require(foreach)
-    Z=foreach(i = 1:ncol(Z),.combine=cbind) %do% {
-      as.matrix(table(units,Z[,i]))[,-1,drop=FALSE]
+    ZZ=c()
+    for(i in 1:ncol(Z))  {
+      ZZ=cbind(ZZ,as.matrix(table(units,Z[,i]))[,-1,drop=FALSE])
     }
+    Z=ZZ
+    rm(ZZ)
     namesBetween=c(namesBetween,colnames(Z))
   }
   

@@ -78,7 +78,8 @@ cFlip(...)
 %- maybe also 'usage' for other objects documented here.
 \arguments{
     \item{obj}{Any \code{flip-object}}
-    \item{element}{Character string of either slot names of \code{obj} (i.e. \code{"res","call","permP","permT","permSpace","permY","tail","data","call.env"}), elements of slot \code{obj@data} (e.g.
+    \item{element}{Character string of either slot names of \code{obj} (i.e. \code{"res","call","permP","permT"},
+\code{"permSpace","permY","tail","data","call.env"}), elements of slot \code{obj@data} (e.g.
 \code{"Y","X","Z","Strata"}) or columns of 
 \code{obj@res} (usually \code{"Test","Stat","tail","p-value"}).
 Specific uses: 
@@ -111,7 +112,7 @@ cFlip(res[1:2],res[5])
 
 
 #plotting results
-plot(flip(y)[1:2])
+plot(flip(y))
 
 #Get any slot of the flip-object. eg the permutation space:
 getFlip(res,"permT")
