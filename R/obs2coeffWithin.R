@@ -1,5 +1,6 @@
 obs2coeffWithin <- function(modelWithin,units,X=NULL, Z=NULL, data=NULL,equal.se=FALSE,se=NA,
                             replaceNA.coeffWithin=NA,replaceNA.coeffWithin.se=Inf,...){
+  
   if(is(modelWithin,"formula"))
     modelWithin <- lm(modelWithin,data=data)
   
@@ -9,36 +10,24 @@ obs2coeffWithin <- function(modelWithin,units,X=NULL, Z=NULL, data=NULL,equal.se
   units=unlist(units)
   
   
-  .obs2coeffWithin<-function(modelWithin,X=X,Z=Z,units=units, data=data,equal.se=equal.se,se=se,
-                             replaceNA.coeffWithin=replaceNA.coeffWithin,
-                             replaceNA.coeffWithin.se=replaceNA.coeffWithin.se,...){
+  .obs2coeffWithin<-function(modelWithin,units=units, data=data,se=se,...){
 		if(is(modelWithin,"vgam")) #e quindi anche vglm ed anche 
-			out=.obs2coeffWithin.vglm(modelWithin,X=X,Z=Z,units=units, data=data,equal.se=equal.se,se=se,
-			                          replaceNA.coeffWithin=replaceNA.coeffWithin,
-			                          replaceNA.coeffWithin.se=replaceNA.coeffWithin.se,...) else
+			out=.obs2coeffWithin.vglm(modelWithin,units=units, data=data,se=se,...) else
 		if(is(modelWithin,"glm")) 
-			out=.obs2coeffWithin.glm(modelWithin,X=X,Z=Z,units=units, data=data,equal.se=equal.se,se=se,
-			                         replaceNA.coeffWithin=replaceNA.coeffWithin,
-			                         replaceNA.coeffWithin.se=replaceNA.coeffWithin.se,...) else
-		if(is(modelWithin,"lm")) #occhio che i glm sono anche lm (anche) in R
-			out=.obs2coeffWithin.lm(modelWithin,X=X,Z=Z,units=units, data=data,equal.se=equal.se,se=se,
-			                        replaceNA.coeffWithin=replaceNA.coeffWithin,
-			                        replaceNA.coeffWithin.se=replaceNA.coeffWithin.se,...) 
+			out=.obs2coeffWithin.glm(modelWithin,units=units, data=data,se=se,...) else
+		if(is(modelWithin,"lm")) #occhio che gli lm univariati sono anche glm (anche) in R
+			out=.obs2coeffWithin.lm(modelWithin,units=units, data=data,se=se,...) 
 		out
 	}
 
 	if(is(modelWithin,"list")){
 		.out=list()
 		for(i in 1:length(modelWithin)){
-			.out[[i]]=.obs2coeffWithin(modelWithin[[i]],X=X,Z=Z,units=units, data=data,equal.se=equal.se,se=se,
-			                           replaceNA.coeffWithin=replaceNA.coeffWithin,
-			                           replaceNA.coeffWithin.se=replaceNA.coeffWithin.se,...) 
+			.out[[i]]=.obs2coeffWithin(modelWithin[[i]],units=units, data=data,se=se,...) 
 		}
 		names(.out)=names(modelWithin)
 		out=.unlist.obs2coeffWithin(.out)
-	} else	out=.obs2coeffWithin(modelWithin,X=X,Z=Z,units=units, data=data,equal.se=equal.se,se=se,
-	                            replaceNA.coeffWithin=replaceNA.coeffWithin,
-	                            replaceNA.coeffWithin.se=replaceNA.coeffWithin.se,...) 
+	} else	out=.obs2coeffWithin(modelWithin,units=units, data=data,se=se,...) 
 	
 	########### missing values are replaced with average among subjects and other things to make up the output
 	out=.fixDataREff(out,units=units,X=X,Z=Z,data=data,replaceNA.coeffWithin=replaceNA.coeffWithin,replaceNA.coeffWithin.se=replaceNA.coeffWithin.se,
@@ -51,7 +40,7 @@ out
 ######################################
 ############# make Y (light version, version 1) for lm with possibly multivariate response
 ##############################
-.obs2coeffWithin.lm <- function(modelWithin, units, data, se=NA, equal.se=FALSE, replaceNA.coeffWithin=NA,replaceNA.coeffWithin.se=NA,...){
+.obs2coeffWithin.lm <- function(modelWithin, units, data, se=NA, replaceNA.coeffWithin=NA,replaceNA.coeffWithin.se=NA,...){
 
 	if (!is(modelWithin,"lm")) print("only lm allowed in .obs2coeffWithin.lm")
 	
@@ -91,7 +80,7 @@ out
 
 #############questa versione mette anche i nomi alle righe delle Y, se ecc
 #############inoltre restituisce matrici di covarianze dei coefficients e non solo la diagonale
-.obs2coeffWithin.glm <- function(modelWithin, units, se=NA, equal.se=FALSE,replaceNA.coeffWithin=NA,replaceNA.coeffWithin.se=NA,...){
+.obs2coeffWithin.glm <- function(modelWithin, units, se=NA, replaceNA.coeffWithin=NA,replaceNA.coeffWithin.se=NA,...){
 ### MODEL NON ? UNA LISTA
 
 	idClust=unique(units)
@@ -127,7 +116,7 @@ out
 
 #############questa versione mette anche i nomi alle righe delle Y, se ecc
 #############inoltre restituisce matrici di covarianze dei coefficients e non solo la diagonale
-.obs2coeffWithin.vglm <- function(modelWithin, units, se=NA, equal.se=FALSE,replaceNA.coeffWithin=NA,replaceNA.coeffWithin.se=NA,...){
+.obs2coeffWithin.vglm <- function(modelWithin, units, se=NA, replaceNA.coeffWithin=NA,replaceNA.coeffWithin.se=NA,...){
 #require(VGAM)
 ### MODEL NON ? UNA LISTA
 	update.vglm <- function(modelWithin,subset){
@@ -257,13 +246,21 @@ out
 	
 	if((!is.null(equal.se)) && equal.se) {
 		w=res$df.res
+    if(ncol(w)!=ncol(res$se)) w=matrix(w,ncol=ncol(res$se),nrow=nrow(res$se))
 		if(any(is.na(res$se))) {
 			idNA=is.na(res$se)
 			res$se[idNA]=0
-			w[idNA]=0
 			}
-		res$se= sqrt(res$se^2 * matrix(apply(res$dispersion^2*w,2,sum)/apply(w,2,sum),byrow=TRUE,nrow=nrow(res$se),ncol=ncol(res$se))
-		             /res$dispersion^2)
+    if(is.null(res$dispersion)|| any(is.na(res$dispersion))){
+      res$se= matrix(sqrt(apply(res$se^2 * w,2,sum)/apply(w,2,sum)),
+                     byrow=TRUE,nrow=nrow(res$se),ncol=ncol(res$se))/sqrt(w)
+      } else  { 
+        if(ncol(res$dispersion)!=ncol(res$se)) 
+          dispersion=matrix(res$dispersion,ncol=ncol(res$se),nrow=nrow(res$se)) else
+            dispersion=res$dispersion
+       res$se= matrix(sqrt(apply(res$se^2 *dispersion^2* w,2,sum)/apply(w,2,sum)),
+                      byrow=TRUE,nrow=nrow(res$se),ncol=ncol(res$se))*sqrt(w)*dispersion
+      }     
 	}
 	
 	if(any(is.na(res$se))){

@@ -1,13 +1,22 @@
 #utils::globalVariables(c("dummy.data.frame",".kolmogorov.dependence.nptest"))
-i<-permSpace<-testType<-statTest<-return.permIDs<-P<-idClust<-test <-j <- otherParams<- NULL
+i<-permSpace<-testType<-statTest<-return.permIDs<-P<-idClust<-test <-j <- otherParams<- perms <- NULL
 
 #####trace of a matrix
 .tr <- function(sigma) sum(diag(sigma))
 
+.getW <- function(data){
+  if(!is.null(data$W)) return(data)
+  data$W=array(,dim(data$Y))
+  dimnames(data$W)=dimnames(data$Y)
+  for(j in 1:nrow(data$covs)) {
+    data$W[j,]=1/sqrt(diag(data$Su) + diag(data$covs[j,,]))
+  }	
+  data
+}
+
 #################### widelly taken from gt{globaltest}
 .getXY <- function(Y,X,Z,data,rotationTest,dummyfy=NULL,statTest,Strata=NULL){
   call <- match.call()
-  
   if(is.null(dummyfy)) {
     dummyfy=list(X=TRUE,Y=TRUE) 
   } else{
@@ -176,7 +185,8 @@ i<-permSpace<-testType<-statTest<-return.permIDs<-P<-idClust<-test <-j <- otherP
                            excludeIntercept=FALSE,forceFactor=FALSE){ 
   #excludeRefCat is used only for NOT ordered factors
   # make appropriate contrasts
-  
+  opt.ref.cat=options()$ref.cat
+  options(ref.cat="first")
   mframe <- model.frame(formu, data=data,na.action = na.pass)
   if(forceFactor){
     toForce <- names(mframe)[!sapply(mframe, is.factor)]
@@ -219,6 +229,7 @@ i<-permSpace<-testType<-statTest<-return.permIDs<-P<-idClust<-test <-j <- otherP
   #	if(!all(colnames(formu) == "(Intercept)" ) ) { #if only the intercept is present
   #	formu <- formu[,colnames(formu) != "(Intercept)",drop=FALSE]    # ugly, but I've found no other way
   #   }
+  options(ref.cat=opt.ref.cat)
   formu
 }
 

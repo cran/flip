@@ -4,8 +4,10 @@ flipMix <- function(modelWithin,X=NULL,Z=NULL,units, perms=1000, data=NULL, tail
                     replaceNA.coeffWithin.se=0, ...) {
 
   otherParams= list(...)
+  if(is.null(otherParams$alsoMANOVA)) otherParams$alsoMANOVA=FALSE
+  
   if(missing(flipReturn)||is.null(flipReturn)) 
-  flipReturn=list(permT=TRUE,permP=FALSE,permSpace=FALSE,data=FALSE)
+  flipReturn=list(permT=TRUE,permP=FALSE,permSpace=FALSE,call.env=TRUE)
   
   if(is.null(statTest) ) if(is.null(otherParams$separatedX)   || otherParams$separatedX)   { statTest="t" } else statTest="F"
   
@@ -29,6 +31,7 @@ flipMix <- function(modelWithin,X=NULL,Z=NULL,units, perms=1000, data=NULL, tail
 	N = nrow(data$coeffWithin)
 	p = ncol(data$coeffWithin)
 	############################## Estimate of random effects
+#browser()
 	if(is.null(data$covs)) {data$covs=array(,c(N,p,p)); for( id in 1:N) data$covs[id,,]=diag(data$se[id,]^2)}
 	if(is.null(Su)){
    		data$Su=.estimateSuMultiILS(Y=data$coeffWithin,Z=as.matrix(cbind(data$X,data$Z)), S=data$covs)
@@ -37,31 +40,33 @@ flipMix <- function(modelWithin,X=NULL,Z=NULL,units, perms=1000, data=NULL, tail
 		}
 	names(data)[names(data)=="coeffWithin"]="Y"
 		if(length(unique(unlist(data$X)))>1){ # if X is not a constant perform dependence.nptest
-		  res=.between.nptest(data, perms=perms, statTest=statTest[1], tail = tail, testType=testType, ...)
+		  res=.between.nptest(data, perms=perms, statTest=statTest[1], tail = tail, testType=testType,otherParams)
 		  out=res$test()
 		  #una pezza estetica:
 		  if(ncol(data$X)==1)
 		    colnames(out$permT)=paste(colnames(out$permT), "_|_",colnames(data$X),sep="")
-		  res=.getOut(res=out,data=data, call=call, flipReturn=flipReturn,test=ressub)
+		  res=.getOut(res=out,data=data, call=call, flipReturn=flipReturn,call.env=res)
       if(length(statTest)>1){
         for(i in 2:length(statTest)) {
-          ressub=.between.nptest(data, perms=perms, statTest=statTest[1], tail = tail, testType=testType, ...)
+          ressub=.between.nptest(data, perms=perms, statTest=statTest[i], tail = tail, testType=testType,otherParams)
           out=ressub$test()
           #una pezza estetica:
           if(ncol(data$X)==1)
             colnames(out$permT)=paste(colnames(out$permT), "_|_",colnames(data$X),sep="")
-          out=.getOut(res=out,data=data, call=call, flipReturn=flipReturn,test=ressub)
+          out=.getOut(res=out,data=data, call=call, flipReturn=flipReturn,call.env=ressub)
           res=cFlip(res,out)          
         }
       }
 		} else { #otherwise perform a symmetry test
-		  data$W=data$Y
+		  #estTypeWithin=c("none","H0","H1")
+		  #type=H0 return a vector of estimates, 
+      data$W=data$Y
 		  data$W[,]=NA
 		  for(j in 1:nrow(data$covs)){
 		    data$W[j,]=1/sqrt(diag(data$Su) + diag(data$covs[j,,]))
 		  }
       for(j in 1:nrow(data$covs)) {  data$W[j,] = diag(data$Su) + diag(data$covs[j,,])} 
-		  res=.symmetry.nptest(data, perms=perms, statTest=statTest,  tail = tail,testType="t",...)
+		  res=.symmetry.nptest(data, perms=perms, statTest=statTest[1],  tail = tail,testType="t",...)
 		  out=res$test()
 		  res=.getOut(res=out,data=data, call=call, flipReturn=flipReturn,call.env=res)
       
@@ -72,7 +77,7 @@ flipMix <- function(modelWithin,X=NULL,Z=NULL,units, perms=1000, data=NULL, tail
 		    for(j in 1:nrow(data$covs)){  
           data$W[j,]=1/sqrt(diag(data$Su) + diag(data$covs[j,,]))
 		    }
-			  ressub=.symmetry.nptest(data, perms=perms, statTest=statTest,  tail = tail,testType="t",...)
+			  ressub=.symmetry.nptest(data, perms=perms, statTest=statTest[i],  tail = tail,testType="t",...)
 				out=ressub$test()
 				out=.getOut(res=out,data=data, call=call, flipReturn=flipReturn,call.env=res)
         res=cFlip(res,out)

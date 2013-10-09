@@ -64,7 +64,7 @@ flip <- function(Y, X=NULL, Z=NULL, data=NULL, tail = 0, perms = 1000, statTest=
               
   						data$X=data$X[,keep,drop=FALSE]
   						levs=unique(data$X)
-  						data$Y=t(sapply(unique(unlist(data$Strata)), function(ids){
+  						data$Y=t(sapply(unique(as.character(unlist(data$Strata))), function(ids){
                 data$Y[(data$Strata==ids)&(data$X==levs[2]),]-
                 data$Y[(data$Strata==ids)&(data$X==levs[1]),]}))
               

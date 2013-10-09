@@ -1,10 +1,10 @@
 ############################
 flip.npc.methods <-
-    c("Fisher", "Liptak", "Tippett", "minP", "maxT", "maxTstd", "sumT", "Direct", "sumT2")
+    c("Fisher", "Liptak", "Tippett", "MahalanobisT", "MahalanobisP", "minP", "maxT", "maxTstd", "sumT", "Direct", "sumTstd", "sumT2","data.sum","data.linComb","data.pc","data.trace")
 ############################
 
 npc <- function(permTP, comb.funct = c(flip.npc.methods, p.adjust.methods) ,subsets=NULL,weights=NULL, stdSpace=FALSE, ...){
-	
+#	on.exit(browser())
 	### just in analogy with gt(). to be implemented as flip-options
 	trace=TRUE
 	
@@ -17,7 +17,29 @@ npc <- function(permTP, comb.funct = c(flip.npc.methods, p.adjust.methods) ,subs
 	if(is(permTP,"flip.object")){
     if(!is.null(list(...)$tail)) {  permTP@tail=tail  }
 		nperms = permTP@call$B
-		if(comb.funct %in% c("Fisher", "Liptak", "minP")) {
+    
+    ##########flipMix type of combination
+    if(comb.funct %in% c("data.sum","data.pc","data.linComb","data.trace")) {
+      if(comb.funct %in% c("data.trace")) test <- .trace.between.nptest
+      if(comb.funct %in% c("data.sum","data.linComb","data.pc")) test <-.t.between.nptest
+      environment(test) <- permTP@call.env
+      environment(test)$otherParams=list(...)
+      environment(test)$otherParams$subsets=subsets
+      if(!is.null(environment(test)$otherParams$perms))   environment(test)$perms=environment(test)$otherParams$perms
+      if(comb.funct %in% c("data.sum","data.linComb","data.pc")) environment(test)$otherParams$onlyMANOVA=TRUE
+      if(comb.funct %in% c("data.sum")) environment(test)$otherParams$linComb=1
+      res=test()
+#      browser()
+      nVar=if(is.null(subsets)) ncol(environment(test)$data$Y) else sapply(subsets,length)
+      if(!exists("flipReturn") || is.null(flipReturn)) 
+        flipReturn=list(permT=TRUE,permP=FALSE)
+#      browser()
+      out=.getOut(type="npc",res=list(permT=res$permT,extraInfoPre=list(comb.funct=comb.funct,nVar=nVar)),data=NULL,tail=list(...)$tail, call=match.call(), 
+                flipReturn=flipReturn,call.env=environment(test))
+      return(out)
+      
+    } else	
+      if(comb.funct %in% c("Fisher", "Liptak", "minP")) {
 			if(!is.null(permTP@permP)){ 
 				permTP=permTP@permP			
 			} else { 
@@ -25,24 +47,28 @@ npc <- function(permTP, comb.funct = c(flip.npc.methods, p.adjust.methods) ,subs
             permTP=t2p(.fixPermT(permTP@permT),obs.only=FALSE,tail=permTP@tail)} else 
 				    {print("Joint distribution of p-values not provided. Nothing done."); return()}
 			} 
-		} else if(comb.funct %in% c("maxT", "sumT", "sumT2")) {
+		} else 
+      if(comb.funct %in% c("maxT", "maxTstd", "sumT","sumTstd", 
+                           "sumT2","MahalanobisT","MahalanobisP")) {
 			if(is.null(permTP@permT)) {print("Joint distribution of p-values not provided. Nothing done."); return()}
-			permTP=.setTail(.fixPermT(permTP@permT),tail=.fitTail(permTP@permT,permTP@tail) ) }
+			if(comb.funct %in% c("MahalanobisT","MahalanobisP")) permTP =permTP@permT else
+         permTP=.setTail(.fixPermT(permTP@permT),tail=.fitTail(permTP@permT,permTP@tail) ) 
+        if(comb.funct %in% c("maxTstd","sumTstd"))
+           permTP=scale(permTP)
+            permTP
+      }
 	} else if(!is.null(list(...)$tail)) {  
 	  permTP=.setTail(.fixPermT(permTP),tail=tail)
 	}
 	
 	
 	#if(!exists("nperm"))  nperms = list(number=nrow(permTP),seed=NA)
-	
 	if(!is.matrix(permTP)) permTP=as.matrix(permTP)
 	if(stdSpace & (comb.funct %in% c("maxT", "sumT", "sumT2"))) {permTP = .t2stdt(permTP,FALSE)}
 	if(comb.funct=="Fisher"){permTP = -log(permTP)} else
 	if(comb.funct=="Liptak"){permTP = -qnorm(permTP)} else
 	if(comb.funct=="minP"){permTP = 1/permTP} else
-	if(comb.funct=="sumT2"){permTP = permTP^2} 
-	
-	
+	  if(comb.funct=="sumT2"){permTP = permTP^2}	
 	
 	
 	############
@@ -72,21 +98,41 @@ npc <- function(permTP, comb.funct = c(flip.npc.methods, p.adjust.methods) ,subs
         stop("length of \"weights\" does not match column count of \"permTP\"")
       all.weights <- weights
     } else {
-      if(comb.funct=="sumT") 
+      if(comb.funct%in%c("sumT","sumTstd")) 
 		all.weights <- rep(1/sqrt(ncol(permTP)), ncol(permTP)) else 
 		all.weights <- rep(1, ncol(permTP)) 	 
 	}
 	names(all.weights) = colnames(permTP)
   
-	if(comb.funct %in% c("Fisher", "Liptak", "sumT", "sumT2")){
+	if(comb.funct %in% c("Fisher", "Liptak", "sumT", "sumT2", "sumTstd"))
 		  test= function(subset=NULL,weights=NULL){ 
-		  permT = matrix(if(is.null(subset)) permTP%*%all.weights else permTP[,subset,drop=FALSE]%*%all.weights[subset]) ;permT}
-	} else 	if(comb.funct %in% c("minP", "maxT"))
+		  permT = matrix(if(is.null(subset)) permTP%*%all.weights else permTP[,subset,drop=FALSE]%*%all.weights[subset]) ;
+      permT} else 	
+  if(comb.funct %in% c("minP", "maxT", "maxTstd"))
 		   test= function(subset=NULL,weights=NULL){ #browser()
 					permT = matrix(apply(if(is.null(subset)) { if(one.weight) t(all.weights*t(permTP)) else permTP } else 
 					t(all.weights[subset]*t(permTP[,subset,drop=FALSE])) , 1, max))  ; 
 					permT
+          } else 
+  if(comb.funct %in% c("MahalanobisT","MahalanobisP")) 
+        test= function(subset=NULL,weights=NULL){
+         if(is.null(subset)) 
+           if(one.weight) pseudoT<-permTP%*%diag(all.weights) else 
+             pseudoT<-permTP  else
+             if(one.weight) pseudoT<-permTP[,subset,drop=FALSE]%*%diag(all.weights[subset])  else 
+               pseudoT<-permTP[,subset,drop=FALSE] 
+         if(comb.funct %in% "MahalanobisP")          
+           pseudoT=qnorm( t2p(pseudoT,tail=1,obs.only=FALSE)*.99999999999)  else
+             pseudoT=scale(pseudoT,scale=FALSE)
+
+         ei=eigen(t(pseudoT)%*%pseudoT,symmetric=TRUE)
+         ei$values[ei$values<0]=0
+         invhalfEV=ei$values^-.5
+         keep= is.finite(invhalfEV)
+					  permT=matrix(rowSums((pseudoT %*% ei$vectors[,keep] %*% diag(invhalfEV[keep]))^2)*sum(keep))
+         permT
 					}
+            
 
 					
 	# Do the test

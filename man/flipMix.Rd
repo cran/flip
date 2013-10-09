@@ -1,5 +1,6 @@
 \name{flipMix}
 \alias{flipMix}
+\alias{flipMixWithin}
 \alias{obs2coeffWithin}
 
 %- Also NEED an '\alias' for EACH other topic documented here.
@@ -16,6 +17,11 @@ flipMix(modelWithin, X = NULL, Z = NULL, units, perms = 1000, data = NULL, tail 
                     statTest = NULL, flipReturn, testType = "permutation", 
                     Su = NULL, equal.se = FALSE, se = NA, replaceNA.coeffWithin = NA, 
                     replaceNA.coeffWithin.se = 0, ...)
+
+flipMixWithin(modelWithin, units, X = ~1, perms=1000, data=NULL, tail=NULL,
+                          statTest=NULL, flipReturn,
+                          Su=NULL, equal.se=FALSE, se=NA, replaceNA.coeffWithin=0,
+                          replaceNA.coeffWithin.se=0, ...)
 
 obs2coeffWithin(modelWithin, units, X = NULL, Z = NULL, data = NULL, equal.se = FALSE, 
           se = NA, replaceNA.coeffWithin = NA, replaceNA.coeffWithin.se = Inf, ...)
@@ -34,7 +40,9 @@ It can be null if data is provided in the right format (see below).
       the alternative hypothesis. If it is a matrix or a data.frame it must have a number of rows equal to the number of units or equal to the total number of observations (in the latest case all elements of the same units must have the same values since they are between-unit effects).
 The non-null between-unit covariates of null model are defined in \code{Z} (see argument below) and do
       not have to be supplied again here.
-See also the function \code{\link{flip}}.
+See also the function \code{\link{flip}}
+
+NOTE: When called from \code{flipMixWithin}, \code{W} is used only if \code{statTest="TBTWest"}.
 }
     \item{Z}{The part of the design matrix corresponding to the non-null between-unit covariates of the model under the null hypothesis. May be given as a design matrix or as a half \code{\link[stats:formula]{formula}} object (e.g. \code{~a+b}). See also the function \code{\link{flip}}.
  If it is a matrix or a data.frame it must have a number of rows equal to the number of units or equal to the total number of observations (in the latest case all elements of the same units must have the same values since they are between-unit effects).
@@ -48,13 +56,21 @@ Vector of units IDs. May be given as a vector or as a half \code{\link[stats:for
   \item{tail}{
 Same as in the function \code{\link{flip}}.
 }
-  \item{statTest}{ Choose among \code{"t"}, \code{"F"} and \code{"Trace"}.
+  \item{statTest}{ For function \code{flipMix} choose among \code{"t"}, \code{"F"} and \code{"Trace"}.
+For function \code{flipMixWithin} choose among \code{"Tnaive"} (i.e. no estimate of the variance), 
+       \code{"TH0est"} (Default, i.e. estimate of the variance under H0), 
+       \code{"TH1est"} (i.e. estimate of the variance under H1 for each permutation. Slower but some time more powerfull) and
+       \code{"TBTWest"} (i.e. estimate of the variance using ILS algorithm at each permutation; it allows for \code{Z} different from a constant term. This is the same algorithm used for \code{flipMix}. MUCH slower but some time even more powerfull).
+
+Both functions allow for vector arguments.
 }
   \item{flipReturn}{
 Same as in the function \code{\link{flip}}.
 }
   \item{testType}{
 See also the function \code{\link{flip}}.
+Note that this option used only with function \code{flipMix}.
+
 }
   \item{Su}{Usually \code{NULL}. It is the covariance matrix of the random effects. If not supplied, it is estimated by iterative least square algorithm.
 }
@@ -72,12 +88,22 @@ Logical. If \code{TRUE} it force the unit to have the same variance of errors (l
 See also the function \code{\link{flip}} for other parameters.
 }
 }
-\value{An object of class \code{flip.object}. 
+\value{\code{flipMix} and \code{flipMixWithin} return an object of class \code{flip.object}. 
 Several operations and plots can be made from this object. See also \code{\link{flip.object-class}}.
+
+Note that function \code{flipMix} with \code{statTest="t"} or \code{"F"} provides tests for each effect between (and interaction) and also provides the overall test \code{PC1} and \code{sum} (i.e. all effects ar null, same as \code{npc} does). 
+
+Use  \code{\link{npc}} with any \code{comb.funct=c("data.sum","data.linComb","data.pc","data.trace")} to combine results.
+
+\code{obs2coeffWithin} return a list of objects that can be used as argument of \code{data} in the function
+\code{flipMix} and \code{flipMixWithin}.
 }
 
 \references{
-L. Finos and D. Basso (2013) Permutation Tests for Between-Unit Fixed Effects in Multivariate Generalized Linear Mixed Models. Statistics and Computing. Accepted.
+L. Finos and D. Basso (2013) Permutation Tests for Between-Unit Fixed Effects in Multivariate Generalized Linear Mixed Models. Statistics and Computing.
+
+D. Basso, L. Finos (2011) Exact Multivariate Permutation Tests for Fixed Effects in Mixed-Models. Communications in Statistics - Theory and Methods.
+
 }
 
 \author{
@@ -85,37 +111,46 @@ Livio Finos and Dario Basso
 }
 
 \seealso{
- \code{\link{flip}}
+ \code{\link{flip}},  \code{\link{npc}}
 }
 
 \examples{
-n=10
-toyData=  data.frame(subj=rep(1:n,rep(4,n)), Within=rep(1:2,n*2),
-          XBetween= rep(1:2,rep(n/2*4,2)),ZBetween= rep(rnorm(n/2),rep(8,n/2)))
-toyData=cbind(Y1=rnorm(toyData$subj+toyData$ZBetween+toyData$XBetween+toyData$Within),
-              Y2=rnorm(toyData$subj+toyData$ZBetween+toyData$Within),toyData)
+N=10
+toyData= data.frame(subj=rep(1:N,rep(4,N)), Within=rep(1:2,N*2),
+          XBetween= rep(1:2,rep(N/2*4,2)),ZBetween= rep(rnorm(N/2),rep(8,N/2)))
+toyData= cbind(Y1=rnorm(n=N*4,mean=toyData$subj+toyData$ZBetween+toyData$XBetween),
+               Y2=rnorm(n=N*4,mean=toyData$subj+toyData$ZBetween+toyData$Within*2),toyData)
 (toyData)
 
 #####################
 ###Testing Between-unit effects
-(flipMix(modelWithin=as.matrix(toyData[,c("Y1","Y2")])~Within,data=toyData, 
+(res=flipMix(modelWithin=as.matrix(toyData[,c("Y1","Y2")])~Within,data=toyData, 
       X=~XBetween,Z=~ZBetween,units=~subj,perms=1000,testType="permutation",statTest="t"))
 #same as:
 modelWithin <- lm(as.matrix(toyData[,c("Y1","Y2")])~Within,data=toyData)
 (flipMix(modelWithin=modelWithin,data=toyData, X=~XBetween,Z=~ZBetween,units= ~subj, 
         perms=1000,testType="permutation",statTest="t"))
 
-
 ### Note that this is different from:
 modelWithin <- list(Y1=lm(Y1~Within,data=toyData),Y2=lm(Y2~Within,data=toyData))
 (flipMix(modelWithin=modelWithin,data=toyData, X=~XBetween,Z=~ZBetween,units= ~subj,
         perms=1000,testType="permutation",statTest="t"))
 
+### combining results
+(npc(res,"data.pc"))
+(npc(res,"data.trace"))
 ################################
 ###Testing Within-unit effects
+## The resulting test is approximated. The estimate of the variance within units 
+## takes in account the presence of effects between units.
 (flipMix(modelWithin=as.matrix(toyData[,c("Y1","Y2")])~Within,data=toyData, units= ~subj, 
         perms=1000,testType="permutation",statTest="t"))
 
+###The resulting tests are exact. If effects between are presents, 
+## statTest="Tnaive" or "TBTWest" are more suitable:
+(res=flipMixWithin(modelWithin=as.matrix(toyData[,c("Y1","Y2")])~Within,data=toyData, units= ~subj, 
+        perms=1000,statTest=c("TH1est")))
+npc(res)
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.

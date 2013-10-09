@@ -9,8 +9,14 @@
 - increased flexibility in definition of custom test statistics.
 
 2.2 (2013.06.15)
-- tests for fixed effects in mixed models.
+- tests for fixed effects in mixed models (flipMix).
 
 2.3 (2013.07.22)
 - dependence to library(foreach) is now avoided.
+- minor bugs fixed.
+
+2.4 (2013.10.09)
+- implemented Mahalanobis combining function for function npc()
+- implemented exact solution for fixed effects in mixed models (flipMixWithin).
+- global test for flipMix have been moved from flipMix to npc, which now allow for new testStat(istic)
 - minor bugs fixed.

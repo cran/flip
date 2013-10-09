@@ -70,7 +70,8 @@ The old syntax \code{rotationTest=TRUE} is maintained for compatibility  but is 
 }
 \details{
 
-\code{statTest="t"} use the t statistic derived from the correlation among the X and the Y. Therefore for multiple Xs, can be slight different from the t test of parametric linear models (the fitted model does not consider the other covariates). The test are valid only under the null hypothesis that all Xs are independent of the single Y. To get adequate test use use \code{Z}.
+\code{statTest="t"} is the t statistic derived from the correlation among the Xs and the Ys (i.e. a linear model for each couples of Xs and Ys). This is different
+from the fit of a multiple (multivariate) linear models, since the correlation does not consider the other covariates).  The test \code{t} is valid only under the assumption that each variable in X is independent of each variable in Y. To get adequate test while adjusting for covariates, use \code{Z} (see example below)
 The test statistic \code{"sum"} is the sum  of values (or frequencies) of the given sample 
 centered on the expected (i.e. computed on the overall sample).
 It performs all possible comparisons among values of \code{X} and \code{Y} (i.e. it does not produce only one test. p-values can be combined using \code{npc}).

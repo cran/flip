@@ -10,10 +10,10 @@ setClassUnion("numericOrmatrixOrcharacterOrNULL", c("numeric","matrix", "NULL","
 setClassUnion("envOrNULL", c("environment", "NULL"))
 
 #############da togliere per compilazione (esistno gia in someMTP)
- setClassUnion("numericOrNULL", c("numeric", "NULL"))
- setClassUnion("listOrNULL", c("list", "NULL"))
+#  setClassUnion("numericOrNULL", c("numeric", "NULL"))
+#  setClassUnion("listOrNULL", c("list", "NULL"))
+#  require(e1071)
 
-options(ref.cat="first")
 
 setClass("flip.object", 
   representation(
@@ -62,7 +62,7 @@ setMethod("summary", "flip.object", function(object, ...)
   cat(deparse(object@call), "\n")
   # cat(ifelse(is.null(nperms$seed),"all",""), nperms$B, ifelse(is.finite(nperms$seed),"random",""), "permutations.\n",   
 	# ifelse(is.finite(nperms$seed),paste("(seed: ",is.finite(nperms$seed)," )",sep=""),"")) 
-  cat(nperms$B, "permutations.",sep=" ")
+  cat(nperms$B+1, "permutations.",sep=" ")
   cat("\n")
   show(object)
 })
@@ -141,11 +141,14 @@ setMethod("size", "flip.object",
 setMethod("[", "flip.object", 
             function(x, i, j,...,drop) 
 {
+  iii=i
 	if(is.character(i) && !all(i %in% names(x))){ 
 		search=which(!(i %in% names(x)))
 		extended= lapply(i, function(ii) names(x)[if(ii %in% names(x)) ii else grep(ii, names(x))] )
-		i=unlist(extended)
+		i=unlist(extended)	
 	}
+
+
   if (all(i %in% names(x)) || 
           all(i %in% 1:length(x)) ||
           all(i %in% -1:-length(x)) ||
@@ -157,6 +160,20 @@ setMethod("[", "flip.object",
 		x@permT <- x@permT[,i,drop=FALSE]
     if (!is.null(x@tail)) # if((i <= length(as.vector(x@tail))) || (length(as.vector(x@tail))==1))
 								x@tail <- x@tail[min(length(as.vector(x@tail)),1)]
+     if("data"%in%slotNames(x)) if (!is.null(x@data)) {
+       #le colonne di Y non sono le stesse delle colonne di permT (a meno che non ci sia un'unica colonna X)
+       search=which(!(iii %in% colnames(x@data$Y)))
+       extended= lapply(iii, function(ii) colnames(x@data$Y)[if(ii %in% colnames(x@data$Y)) ii else grep(ii, colnames(x@data$Y))] )
+       i=unlist(extended)        
+      if(!is.null(x@data$Y)) x@data$Y <- x@data$Y[,i,drop=FALSE]
+      if(!is.null(x@data$se)) x@data$se <- x@data$se[,i,drop=FALSE]
+      if(!is.null(x@data$df.mod)) x@data$df.mod <- x@data$df.mod[,i,drop=FALSE]
+      if(!is.null(x@data$df.res)) if(ncol(x@data$df.res)>1) x@data$df.res <- x@data$df.res[,i,drop=FALSE]
+      if(!is.null(x@data$covs)) x@data$covs <- x@data$covs[,i,i,drop=FALSE]
+      if(!is.null(x@data$Su)) x@data$Su <- x@data$Su[i,i,drop=FALSE]
+      if(!is.null(x@data$dispersion)) if(ncol(x@data$dispersion)>1) x@data$dispersion <- x@data$dispersion[,i,drop=FALSE]
+      if(!is.null(x@data$coeffWithin)) x@data$coeffWithin <- x@data$coeffWithin[,i,drop=FALSE]
+    }
     #if (!is.null(x@weights)) x@weights <- x@weights[i]
     x
   } else {

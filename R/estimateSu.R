@@ -10,7 +10,10 @@
 	si = array(0,dim=c(n,1))
 
 	while(bb <= max.int & ID == 0){
-		for(i in 1:n){si[i] = tr(S[i,,]+Su)}
+		for(i in 1:n){#print(tr(S[i,,]))
+                        si[i] = tr(S[i,,])+tr(Su)}
+    
+    #print(si)
 		V = diag(as.vector(1/sqrt(si))) ; # W =  diag(as.vector(sqrt(si)))
 		ys = V%*%Y ; Zs = V%*%Z
 		Hs = diag(n)-Zs%*%solve(t(Zs)%*%Zs)%*%t(Zs)
@@ -38,5 +41,6 @@
 	}
   colnames(Su)=rownames(Su)=colnames(Y)
   attr(Su,"n.iter")=bb-1
+	attr(Su,"TR")=TR
 	return(Su)
 }

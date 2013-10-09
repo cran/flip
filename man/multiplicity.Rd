@@ -17,14 +17,18 @@ flip.adjust(permTP, method = flip.npc.methods, maxalpha = 1,
           weights = NULL, stdSpace=FALSE, ...)
 
 flip.npc.methods 
-#    c("Fisher", "Liptak", "minP", "maxT", "maxTstd", "sumT", "sumT2")
+#    c("Fisher", "Liptak", "Tippett", "MahalanobisT", "MahalanobisP", 
+#      "minP", "maxT", "maxTstd", "sumT", "Direct", "sumTstd", "sumT2",
+#      "data.sum","data.linComb","data.pc","data.trace") 
+# use methods in the last row only for outputs of function flipMix()
+
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
   \item{permTP}{
   A permutation space (B times m matrix) or an \code{flip.object} as produced by \code{\link{flip}}. Alternatively it can be a \code{\link{flip.object-class}} resulting, for example from a call of function \code{\link{flip}}.
 }
-  \item{comb.funct}{ A combining function \code{flip.npc.methods}: "Fisher", "Liptak", "minP" (i.e. Tippet), "maxT", "sumT" (i.e. direct) , "sumT2" (sum of T^2).
+  \item{comb.funct}{ A combining function \code{flip.npc.methods}: "Fisher", "Liptak", "MahalanobisT" , "MahalanobisP" (i.e. related to Hotelling T2), "minP" (i.e. Tippet), "maxT", "sumT" (i.e. direct) , "sumT2" (sum of T^2).
   \code{"Fisher"} combining function is the default.
   See also the section \code{Details}.
 }
@@ -51,7 +55,26 @@ It works for \code{npc} and \code{flip.adjust} with \code{method}= "maxT", "maxT
 }
 
 \details{
-\code{npc} combines the p-values using the combining functions (and the method) described in Pesarin (2001). It make use of the join space of the permutations. This is usually derived from a call of \code{flip} function.
+\code{npc} combines the p-values using the combining functions (and the method) described in Pesarin (2001). It makes use of the join space of the permutations. This is usually derived from a call of \code{flip} function or \code{flipMixWithin}.
+
+Very shortly:\\
+\code{"Fisher"} =-sum log(p-values) \\
+\code{"Liptak"} =sum qnorm(p-values) \\
+\code{"MahalanobisT"} = Mahalanobis distance of centered matrix \code{permTP} (or \code{permTP@permT})  \\
+\code{"MahalanobisP"} = same as above, but using scores defined by  qnorm(p-values) (tails are forced to be one-sided) \\
+\code{"minP"} = \code{"Tippett"} = min(p-values) \\
+\code{"maxT"} = max(test statistics) \\
+\code{"maxTstd"} = max(standardized test statistics) \\
+\code{"sumT"} = sum (test statistics) \\ 
+\code{"sumTstd"} = sum (standardized test statistics) \\ 
+\code{"sumT2"} = sum (test statistics)^2\\
+The followings have to be used carefully and only with objects from function flipMix()\\
+\code{"data.sum"} = sum of all columns of Y\\
+\code{"data.linComb"} = sum of all columns of Y (include a vector or matrix \code{linComb} among the arguments)\\
+\code{"data.pc"} = extract the first Principal component from the covariance matrix (you may also include a vector \code{whichPCs} indicating which PCs you want to consider)\\
+\code{"data.trace"} = Extends the Pillai Trace, use parametric bootstrap to asses the significance.
+
+
 
 \code{flip.adjust} adjusts the p-value for multiplicity (FamilyWise Error Rate).
 When \code{method} is equal to \code{"maxT"}, \code{"maxTstd"} (i.e. max T on \code{scale(permTP)}) or "minP" (i.e. Tippett) it performs the step-down method of Westfall and Young (1993).
@@ -83,6 +106,8 @@ Y[,1:2]=Y[,1:2]+1.5
 res = flip(Y,perms=10000)
 
 ########npc
+p2=npc(res) # same as p2=npc(res,"Fisher")
+summary(p2)
 p2=npc(res,"minP")
 summary(p2)
 p2=npc(res,"Fisher",subsets=list(c1=c("A","B"),c2=names(Y)))

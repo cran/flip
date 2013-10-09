@@ -34,7 +34,7 @@ make.signSpace <- function(N,perms) {
 		if (2^(N-1) <= perms$B) {
 		    # all permutations if possible and if no stratas
 			#random <- FALSE
-			require(e1071)
+		 # require(e1071)
 			if(N>1){
 				perms$permID <-cbind(0,bincombinations(N-1))
 				perms$permID= perms$permID[-1,]
@@ -156,17 +156,21 @@ make.permSpace <- function(IDs,perms,return.permIDs=FALSE,testType="permutation"
 	if(is.null(perms$B))  perms$B <- 1000
 	#if(is.null(perms$seed) || is.na(perms$seed) )  perms$seed <- round(runif(1)*1000)
 	perms$p=ncol(covs)
-	ei=eigen(covs[1,,]); 
-	ei$values[ei$values<0]=0; 
-	temp=diag(sqrt(ei$values))%*%t(ei$vectors)
-  perms$rots=matrix(,nrow(covs),length(temp))
-  perms$rots[1,]=temp
-  rm(temp,ei)  
-	for(i in 2:nrow(covs)) {
-    ei=eigen(covs[i,,]); 
-    ei$values[ei$values<0]=0; 
-    perms$rots[i,]=diag(sqrt(ei$values))%*%t(ei$vectors)
-	}
+  if(perms$p==1){
+    perms$rots=array(1,c(nrow(covs),1))
+  } else {
+  	ei=eigen(covs[1,,]); 
+  	ei$values[ei$values<0]=0; 
+  	temp=diag(sqrt(ei$values))%*%t(ei$vectors)
+    perms$rots=matrix(,nrow(covs),length(temp))
+    perms$rots[1,]=temp
+    rm(temp,ei)  
+  	for(i in 2:nrow(covs)) {
+      ei=eigen(covs[i,,]); 
+      ei$values[ei$values<0]=0; 
+      perms$rots[i,]=diag(sqrt(ei$values))%*%t(ei$vectors)
+  	}
+  }
 	#now covs is a list of length n
 	rm(covs)
 	if(is.null(perms$rotFunct))  

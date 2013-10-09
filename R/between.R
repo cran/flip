@@ -1,4 +1,4 @@
-.between.nptest <- function(data, perms=5000,  tail = NULL,statTest="t",testType="permutation",...){
+.between.nptest <- function(data, perms=5000,  tail = NULL,statTest="t",testType="permutation",otherParams){
 	
 	if(is.null(statTest)) 
 		if(is.null(otherParams$separatedX) || otherParams$separatedX)
@@ -29,12 +29,17 @@
 
 ###########################################
 .t.between.nptest <- function(){
-	if(ncol(data$Y)==1) {
-		data$W=as.matrix(1/sqrt(data$Su + (data$covs)))
-	} else {
-		data=.getLinCombAndWeights(data,otherParams)
-	}
-	
+  data=.getW(data)
+  if((!is.null(otherParams$alsoMANOVA)&&otherParams$alsoMANOVA)|(!is.null(otherParams$onlyMANOVA)&&otherParams$onlyMANOVA)){  
+    combData=.getLinCombAndWeights(data, otherParams)
+    if(!is.null(otherParams$onlyMANOVA)&&otherParams$onlyMANOVA){
+      data$Y =combData$Y
+      data$W =combData$W
+    } else{
+      data$Y =cbind(data$Y,comb=combData$Y)  
+      data$W =cbind(data$W,comb=combData$W)
+    }
+  }
 	#colnames(data$W)=colnames(data$Y)
     perms <- make.permSpace(1:(nrow(data$Y) - ncol(data$Z)),perms,return.permIDs=TRUE,testType=testType)
 	uni.test <- function(i,data){	
@@ -59,19 +64,32 @@
 		return(NULL)
 	} else {
 	
-  covs=data$covs
-  for(i in 1:nrow(data$covs)) covs=data$covs[i,,] +data$Su
-  
-	perms <- make.permSpace(covs,perms,testType="Simulation")	
-	
-	permT=.trace.sim(data,perms)
+	if(!is.null(otherParams$subsets)){
+	  permT=NULL
+    #si potrebbe tentare di fissare le dimensioni della matrice permT per velocizzare un po'
+	    otherParams2=otherParams
+	    otherParams2$subsets=NULL
+	    for(i in 1:length(otherParams$subsets))
+	    {
+	      dataSub=data
+	      dataSub$Y=dataSub$Y[,otherParams$subsets[[i]],drop=FALSE]
+	      dataSub$Su=dataSub$Su[otherParams$subsets[[i]],otherParams$subsets[[i]],drop=FALSE]
+	      dataSub$covs=dataSub$covs[,otherParams$subsets[[i]],otherParams$subsets[[i]],drop=FALSE]
+	      permT=cbind(permT,.trace.sim(dataSub,perms))
+	    }
+	  colnames(permT)=names(otherParams$subsets)
+	  } else permT=.trace.sim(data,perms)
+
 	rownames(permT)=.getTRowNames(permT)
-	return(list(permT=permT,perms=perms,tail=1,extraInfoPre=list(Test="F-trace")))
+	return(list(permT=permT,perms=list(B=perms),tail=1,extraInfoPre=list(Test="F-trace")))
 	}
 }
 
 .trace.sim <- function(data,perms){
-	
+  covs=data$covs
+  for(i in 1:nrow(data$covs)) covs[i,,]=data$covs[i,,] +data$Su
+  perms <- make.permSpace(covs,perms,testType="Simulation")	
+  
 	PZX=cbind(data$Z,data$X)%*%solve(t(cbind(data$Z,data$X))%*%cbind(data$Z,data$X))%*%t(cbind(data$Z,data$X))
 	PZ=data$Z%*%solve(t(data$Z)%*%data$Z)%*%t(data$Z)
 	PZXPZ= PZX-PZ
@@ -79,9 +97,8 @@
 	rm(PZ,PZX)
 	dfratio=(nrow(data$Y)- ncol(data$X) -ncol(data$Z) )/ncol(data$X)
 	.stat <- function(y) .tr(t(y)%*%PZXPZ %*% y)/.tr(t(y)%*%HZX%*%y) * dfratio
-  
 	permT=matrix(,perms$B+1,1)
-  permT[1,]=.stat(data$Y)
+  permT[1,]=.stat(data$Y)  
 	for(i in 1:perms$B) permT[i+1,]=.stat(perms$rotFunct())
 	colnames(permT)="F-trace"
 	permT
@@ -89,10 +106,17 @@
 
 #################################################
 .F.between.nptest <- function(){
-  
-  if(ncol(data$Y)==1) 
-    data$W=as.matrix(1/sqrt(data$Su + (data$covs))) else 
-      data=.getLinCombAndWeights(data, otherParams)
+  data=.getW(data)
+  if(!is.null(otherParams$alsoMANOVA)&&otherParams$alsoMANOVA){    
+    combData=.getLinCombAndWeights(data, otherParams)
+    if(!is.null(otherParams$onlyMANOVA)&&otherParams$onlyMANOVA){
+      data$Y =combData$Y
+      data$W =combData$W
+    } else{
+      data$Y =cbind(data$Y,comb=combData$Y)  
+      data$W =cbind(data$W,comb=combData$W)
+    }
+  }
   
   perms <- make.permSpace(1:(nrow(data$Y) - ncol(data$Z)),perms,return.permIDs=TRUE,testType=testType)
   uni.test <- function(i,data){	
@@ -112,47 +136,77 @@
 
 #####################################
 .getLinCombAndWeights<- function(data, otherParams){
-	if(is.null(otherParams$fastSumCombination)){
+#  browser()
+  if(!is.null(otherParams$subsets)){
+    dataComb=list(Y=NULL,W=NULL)
+    otherParams2=otherParams
+    otherParams2$subsets=NULL
+    data=.getW(data)
+    for(i in 1:length(otherParams$subsets))
+      {
+      dataSub=data
+      dataSub$Y=dataSub$Y[,otherParams$subsets[[i]],drop=FALSE]
+      dataSub$W=dataSub$W[,otherParams$subsets[[i]],drop=FALSE]
+      dataSub$Su=dataSub$Su[otherParams$subsets[[i]],otherParams$subsets[[i]],drop=FALSE]
+      dataSub$covs=dataSub$covs[,otherParams$subsets[[i]],otherParams$subsets[[i]],drop=FALSE]
+      #print(c(i, ncol(dataSub$Y),dim(dataSub$Su),dim(dataSub$cov)))
+      
+      temp=.getLinCombAndWeights(dataSub,otherParams2)
+      colnames(temp$Y)=paste(names(otherParams$subsets)[i],sep=":", colnames(temp$Y))
+      colnames(temp$W)=paste(names(otherParams$subsets)[i],sep=":", colnames(temp$W))
+      dataComb$Y=cbind(dataComb$Y,temp$Y)
+      dataComb$W=cbind(dataComb$W,temp$W)
+    }
+    return(dataComb)
+  }
+    
+  if(ncol(data$Y)==1) 
+    {W=as.matrix(1/sqrt(data$Su[1,1] + (data$covs))) 
+     return(list(Y=data$Y,W=W))
+  }
+  
+	if(is.null(otherParams$fastSumCombination) || (otherParams$fastSumCombination)){
 		if(is.null(otherParams$linComb)) {
-			if(is.null(otherParams$whichpcs)) whichpcs=1:(1+(ncol(data$Y)==2)) else whichpcs=otherParams$whichpcs
+			if(is.null(otherParams$whichPCs)) whichPCs=1:(1+(ncol(data$Y)==2)) else whichPCs=otherParams$whichPCs
 			# standard deviations
 			sd2s=diag(apply(data$covs,c(2,3),mean))+diag(data$Su)
 			linComb=1/sqrt(sd2s)
 			CORR=array(t(apply(data$covs,1,function(cov){ diag(linComb)%*%(cov+data$Su)%*%diag(linComb)})),dim(data$covs))
 			CORR=apply(CORR,c(2,3),mean)
-			linComb = (linComb)*prcomp(CORR)$rotation[,whichpcs,drop=FALSE]
-			linComb = cbind(linComb,sum=1)
-			
-		} else 
+			linComb = (linComb)*prcomp(CORR)$rotation[,whichPCs,drop=FALSE]
+			if(is.null(otherParams$onlyMANOVA)||!(otherParams$onlyMANOVA)) linComb = cbind(linComb,sum=1)
+		} else {
+      if(length(otherParams$linComb)==1) otherParams$linComb=rep(otherParams$linComb,ncol(data$Y))
 			linComb=otherParams$linComb
-			
-		data$Y =cbind(data$Y,comb=data$Y%*%linComb)
-		data$W=array(,dim(data$Y))
-		rownames(data$W)=rownames(data$Y)  
+		}
+  #  browser()
+		Y =data$Y%*%linComb
+		W=array(,dim(Y))
+		dimnames(W)=dimnames(Y)  
 		for(j in 1:nrow(data$covs)) {
 		  cov= data$Su + data$covs[j,,]
-      data$W[j,]=1/sqrt(c(diag(cov), diag(t(linComb)%*%cov%*%linComb)))
+      W[j,]=1/sqrt(diag(t(linComb)%*%cov%*%linComb))
 		}	
-	} else{
+	} else{ #slow combination method
 		if(is.null(otherParams$linComb)) {
-			if(is.null(otherParams$whichpcs)) whichpcs=1:(1+(ncol(data$Y)==2)) else whichpcs=otherParams$whichpcs
+			if(is.null(otherParams$whichPCs)) whichPCs=1:(1+(ncol(data$Y)==2)) else whichPCs=otherParams$whichPCs
 			meanCov=apply(data$covs,c(2,3),mean)
-			linComb= diag(1/sqrt(diag(meanCov)))%*%prcomp(meanCov,scale. = TRUE)$rotation[,whichpcs,drop=FALSE]
-			linComb = cbind(linComb,sum=1)
-		} else 
-			linComb=cbind(otherParams$linComb,1)
+			linComb= diag(1/sqrt(diag(meanCov)))%*%prcomp(meanCov,scale. = TRUE)$rotation[,whichPCs,drop=FALSE]
+			if(is.null(otherParams$onlyMANOVA)||!(otherParams$onlyMANOVA)) linComb = cbind(linComb,sum=1)
+		} else {
+		  if(length(otherParams$linComb)==1) otherParams$linComb=rep(otherParams$linComb,ncol(data$Y))
+		  linComb=otherParams$linComb
+		}
 			
-		comb=data$Y%*%linComb
+		Y=data$Y%*%linComb
 		covMulti=array(t(apply(data$covs,1,function(cov){ diag(t(linComb)%*%cov%*%linComb)})),c(nrow(data$covs),ncol(linComb)))
-		SuMulti=sapply(1:ncol(comb),function(i) .estimateSuMultiILS(Y=comb[,i,drop=FALSE],Z=as.matrix(cbind(data$X,data$Z)), S=array(covMulti[,i,drop=FALSE],c(nrow(comb),1,1))))
-		data$Y =cbind(data$Y,comb=comb)
-		data$W=array(,dim(data$Y))
-		rownames(data$W)=rownames(data$Y)  
+		SuMulti=sapply(1:ncol(Y),function(i) .estimateSuMultiILS(Y=Y[,i,drop=FALSE],Z=as.matrix(cbind(data$X,data$Z)), S=array(covMulti[,i,drop=FALSE],c(nrow(Y),1,1))))
+		W=array(,dim(Y))
+		dimnames(W)=dimnames(Y)  
 		for(j in 1:nrow(data$covs)) {
 		  cov= data$Su + data$covs[j,,]
-		  data$W[j,]=1/sqrt(c(diag(cov), covMulti[j,]+SuMulti))
+		  W[j,]=1/sqrt(covMulti[j,]+SuMulti)
 		}	
-		colnames(data$W)=colnames(data$Y)
 	}
-data
+list(Y=Y,W=W)
 }
