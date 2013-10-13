@@ -14,7 +14,7 @@
 			statTest="t" else
 			statTest="F"
 
-	if((testType=="rotation") && statTest%in%c("Fisher","Wilcoxon","Kruskal-Wallis","ranks","chisq","chisq.separated") ){
+	if((testType=="rotation") && statTest%in%c("Fisher","Wilcoxon","Kruskal-Wallis","rank","chisq","chisq.separated") ){
 	  warning("Rotations are not allowed for Fisher exact test, permutations will be used instead.")
 	  testType="permutation"
 	}
@@ -22,13 +22,13 @@
     if(statTest=="NA"){ #for missing values
 	    #same function for permutation and rotation tests
 	      test <- .NA.dependence.nptest
-	  } else if(statTest%in%c("sum","t")){
+	  } else if(statTest%in%c("sum","t","coeff")){
 				test <- .t.dependence.nptest		
 		} else if(statTest=="F"){ #ANOVAtype test, 1 column for each column of Y summarizing the dependence with all Xs			
 				test <- .F.dependence.nptest
 		} else if(statTest=="Fisher"){
 				test <- .fisher.dependence.nptest
-		} else if(statTest%in%c("Wilcoxon","Kruskal-Wallis","ranks")){
+		} else if(statTest%in%c("Wilcoxon","Kruskal-Wallis","rank")){
 				test <- .rank.dependence.nptest
 		} else if(statTest%in%c("chisq","chisq.separated")){
 			test <- .chisq.dependence.nptest
@@ -36,7 +36,7 @@
 # 			test <- .kolmogorov.dependence.nptest
 		} else	{stop("This test statistic is not valid, nothing done."); return()}
   
-if(statTest%in%c("Fisher","Wilcoxon","Kruskal-Wallis","ranks","chisq","Kolmogorov-Smirnov")) {
+if(statTest%in%c("Fisher","Wilcoxon","Kruskal-Wallis","rank","chisq","Kolmogorov-Smirnov")) {
 			if(length(unique(data$Z))>1 ) warning("Covariates Z can not be used in this test. Use strata instread.")
 	}
   environment(test) <- sys.frame(sys.nframe())
@@ -47,19 +47,25 @@ if(statTest%in%c("Fisher","Wilcoxon","Kruskal-Wallis","ranks","chisq","Kolmogoro
 ###########################################
 
 .t.dependence.nptest <- function(){
-	#data <- .orthoZ(data) #if Z is.null, it doesn't make anything
+  data <- .orthoZ(data) #if Z is.null, it doesn't make anything
 	N=nrow(data$Y)
   perms <- make.permSpace(1:N,perms,return.permIDs=TRUE,testType=testType, Strata=data$Strata)
 	#search for intercept in the model
-	intercept=.getIntercept(data$X)
+  intercept=.getIntercept(data$X)
+  if(statTest=="coeff") {
+    data$X=data$X%*%solve(t(data$X)%*%data$X)
+  }
+  
 	if(any(intercept)) {
 		data$intercept=TRUE
 		data$X=data$X[,!intercept,drop=FALSE]
 	}
+  
+    
 		#data$X=scale(data$X,scale=FALSE)
   permT=.prod.perms(data,perms,testType=testType)
 	
-	if(statTest=="sum") 
+	if(statTest%in%c("sum","coeff") )
 		permT= .prod2sum(permT,data)
 	else if(statTest=="t") {
 		permT= .prod2t(permT,data)
@@ -70,7 +76,7 @@ if(statTest%in%c("Fisher","Wilcoxon","Kruskal-Wallis","ranks","chisq","Kolmogoro
 	rownames(permT)=.getTRowNames(permT)		
 	
 	if(statTest=="sum") {
-		center=as.vector(t(colSums(data$X))%*%colSums(data$Y))/N
+		center=as.vector(outer(colSums(data$X),colSums(data$Y),"*"))/N
 		names(center)=colnames(permT)
 		attributes(tail)$center=center
 	}
@@ -78,8 +84,7 @@ if(statTest%in%c("Fisher","Wilcoxon","Kruskal-Wallis","ranks","chisq","Kolmogoro
 }
 			
 .F.dependence.nptest <- function(){
-	#data <- .orthoZ(data)
-	
+	data <- .orthoZ(data)
 	N=nrow(data$Y)	
 	perms <- make.permSpace(1:N,perms,testType=testType,return.permIDs=TRUE, Strata=data$Strata)
 	#search for intercept in the model
@@ -116,7 +121,7 @@ if(statTest%in%c("Fisher","Wilcoxon","Kruskal-Wallis","ranks","chisq","Kolmogoro
 	intercept=.getIntercept(data$X)
 	if(any(intercept)) data$X=data$X[,!intercept,drop=FALSE]
 
-	if(statTest=="ranks")
+	if(statTest=="rank")
 			statTest=ifelse(ncol(data$X)>1,"Kruskal-Wallis","Wilcoxon")
 
 	if(statTest=="Wilcoxon"){
@@ -225,9 +230,9 @@ if(statTest%in%c("Fisher","Wilcoxon","Kruskal-Wallis","ranks","chisq","Kolmogoro
       })))
       rm(notNA)
 
-      permT=matrix(,perms$B+1,length(tObs))
+      permT=matrix(,perms$B,length(tObs))
       permT[1,]=tObs
-      for(b  in (1:perms$B)) {
+      for(b  in (1:(perms$B-1))) {
                     Yperm=perms$rotFunct(b)
                     notNA=!is.na(Yperm)
                     permT[b+1,]=as.vector(unlist(sapply(1:ncol(data$Y),function(i) {
@@ -247,15 +252,16 @@ if(statTest%in%c("Fisher","Wilcoxon","Kruskal-Wallis","ranks","chisq","Kolmogoro
       
       colnames(permT) = .getTNames(data$Y,permT=permT)
   } else { #only one predictor
+    data$Y=scale(data$Y, center = TRUE, scale = FALSE)
       notNA=!is.na(data$Y)
       tObs= as.vector(unlist(sapply(1:ncol(data$Y),function(i) {
         if(length(unique(data$X[notNA[,i],]))==1) NA  #X is constant
         else t(scale(data$X[notNA[,i],]))%*%data$Y[notNA[,i],i]
       })))
       rm(notNA)
-      permT=matrix(,perms$B+1,length(tObs))
+      permT=matrix(,perms$B,length(tObs))
       permT[1,]=tObs
-      for(b in (1:perms$B)){
+      for(b in (1:(perms$B-1))){
                 Yperm=perms$rotFunct(b)
                 notNA=!is.na(Yperm)
                 permT[b+1,]=as.vector(unlist(sapply(1:ncol(data$Y),function(i){ 

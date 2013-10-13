@@ -55,18 +55,18 @@ Objects can be created by calls of the form \code{new("flip.object", ...)}.
   \describe{
     \item{[}{Select tests from the \code{flip.object}. Tests can be selected by position of name. It also allow for grep-like selection.}
     \item{[[}{Same as \code{[} }
-    \item{hist}{Produces a histogram to visualize the permutation test statistics (same function of \code{globaltest:gt.object}) }
+    \item{hist}{Produces a histogram to visualize the permutation test statistics (same as \code{globaltest:gt.object}) }
     \item{length}{Number of tests }
     \item{names}{\code{signature(x = "flip.object")}: ... }
     \item{names<-}{\code{signature(x = "flip.object")}: ... }
     \item{p.value}{Extracts p-values from the object.}
 	\item{p.adjust}{Performs multiple testing correction and produces multiplicity-corrected p-values. See \code{\link[flip:flip.adjust]{flip.adjust}} for details. }
     \item{plot}{\code{signature(x = "flip.object", y = "missing")}. It plots the permutation space and the observed test statistic. The plot is an histogram (see \code{hist.flip.object}) if there is only one test, while it is a biplot when there are more variables. In this case the arrows of the rotations are colored in red when the associated \code{p-value(res)<=.05}. }
-    \item{result}{\code{signature(object = "flip.object")}: ... }
-    \item{show}{\code{signature(object = "flip.object")}: ... }
+    \item{result}{report table of results}
+    \item{show}{report table of results}
     \item{size}{Returns the size of permT (i.e. number of permutations X number of tests)}
     \item{sort}{Sorts the tests to increasing p-values.}
-    \item{summary}{\code{signature(object = "flip.object")}: ... }
+    \item{summary}{ Provides the call, the number of permutations. Option \code{star.signif}: \code{=TRUE} (default) set stars depending on the last column of p-values; \code{=FALSE} inhibits stars, \code{="p-value"} or any other names indicates the column to which the stars refer.}
 	 }
 }
 
@@ -81,7 +81,8 @@ cFlip(...)
     \item{element}{Character string of either slot names of \code{obj} (i.e. \code{"res","call","permP","permT"},
 \code{"permSpace","permY","tail","data","call.env"}), elements of slot \code{obj@data} (e.g.
 \code{"Y","X","Z","Strata"}) or columns of 
-\code{obj@res} (usually \code{"Test","Stat","tail","p-value"}).
+\code{obj@res} (usually \code{"Test","Stat",}\code{
+"tail","p-value"}).
 Specific uses: 
 \code{"Adjust:"} returns all columns of adjusted p-values in \code{obj@res}.
 Any among \code{"nperms","perms","B"} return the number of permutation used.
@@ -115,7 +116,7 @@ cFlip(res[1:2],res[5])
 plot(flip(y))
 
 #Get any slot of the flip-object. eg the permutation space:
-getFlip(res,"permT")
+head(getFlip(res,"permT"))
 #Get any element of the list obj@data. eg Y:
 getFlip(res,"Y")
 #Get any columns of the results table: obj@res. eg Statistic (choose among colnames(obj@res) ):

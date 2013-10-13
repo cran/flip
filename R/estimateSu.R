@@ -1,3 +1,4 @@
+###############################################33
 .estimateSuMultiILS = function(Y,Z,S,tol=0.001,max.int=10){
 
 
@@ -11,12 +12,15 @@
 
 	while(bb <= max.int & ID == 0){
 		for(i in 1:n){#print(tr(S[i,,]))
-                        si[i] = tr(S[i,,])+tr(Su)}
+                        si[i] = tr(S[i,,])+tr(Su)
+		}
     
     #print(si)
 		V = diag(as.vector(1/sqrt(si))) ; # W =  diag(as.vector(sqrt(si)))
 		ys = V%*%Y ; Zs = V%*%Z
 		Hs = diag(n)-Zs%*%solve(t(Zs)%*%Zs)%*%t(Zs)
+    #force the symmetry (errors on approx)
+    Hs = (Hs+t(Hs))/2
 		Es=eigen(Hs)
 		Ls = Es$vectors%*%diag(Es$values)
 		Rs = t(Ls)%*%ys  				#; Rr = W%*%Rs
@@ -29,7 +33,7 @@
 		SSu = (t(Rs)%*%Rs-SS)/sum(w) 
 		
 		########## simmetrizza per non avere PARTI IMMAGINARIE dovute a scarsa approssimazione
-		E = eigen((SSu+t(SSu))/2)
+    E = eigen((SSu+t(SSu))/2)
 		E$values[E$values<0]=0
 		if(length(E$values)==1) E$values=matrix(E$values)
 		

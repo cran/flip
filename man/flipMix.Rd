@@ -13,15 +13,15 @@ The response can be uni- or multi-variate.
 See also examples below.
 }
 \usage{
-flipMix(modelWithin, X = NULL, Z = NULL, units, perms = 1000, data = NULL, tail = NULL,
-                    statTest = NULL, flipReturn, testType = "permutation", 
-                    Su = NULL, equal.se = FALSE, se = NA, replaceNA.coeffWithin = NA, 
-                    replaceNA.coeffWithin.se = 0, ...)
+flipMix(modelWithin, X = NULL, Z = NULL, units, perms = 1000, data = NULL, 
+          tail = NULL, statTest = NULL, flipReturn, testType = "permutation", 
+          Su = NULL, equal.se = FALSE, se = NA, replaceNA.coeffWithin = "coeffMeans", 
+          replaceNA.coeffWithin.se = replaceNA.coeffWithin, ...)
 
 flipMixWithin(modelWithin, units, X = ~1, perms=1000, data=NULL, tail=NULL,
                           statTest=NULL, flipReturn,
                           Su=NULL, equal.se=FALSE, se=NA, replaceNA.coeffWithin=0,
-                          replaceNA.coeffWithin.se=0, ...)
+                          replaceNA.coeffWithin.se= Inf, ...)
 
 obs2coeffWithin(modelWithin, units, X = NULL, Z = NULL, data = NULL, equal.se = FALSE, 
           se = NA, replaceNA.coeffWithin = NA, replaceNA.coeffWithin.se = Inf, ...)
@@ -56,11 +56,11 @@ Vector of units IDs. May be given as a vector or as a half \code{\link[stats:for
   \item{tail}{
 Same as in the function \code{\link{flip}}.
 }
-  \item{statTest}{ For function \code{flipMix} choose among \code{"t"}, \code{"F"} and \code{"Trace"}.
+  \item{statTest}{ For function \code{flipMix} choose among \code{"t"} and \code{"F"} (very similar to \code{statTest} in function \code{flip}.\\
 For function \code{flipMixWithin} choose among \code{"Tnaive"} (i.e. no estimate of the variance), 
        \code{"TH0est"} (Default, i.e. estimate of the variance under H0), 
-       \code{"TH1est"} (i.e. estimate of the variance under H1 for each permutation. Slower but some time more powerfull) and
-       \code{"TBTWest"} (i.e. estimate of the variance using ILS algorithm at each permutation; it allows for \code{Z} different from a constant term. This is the same algorithm used for \code{flipMix}. MUCH slower but some time even more powerfull).
+       \code{"TH1est"} (i.e. estimate of the variance under H1 for each permutation. Slower but some time more powerful) and
+       \code{"TBTWest"} (i.e. estimate of the variance using ILS algorithm at each permutation; it allows for \code{Z} different from a constant term. This is the same algorithm used for \code{flipMix}. MUCH slower but some time even more powerful).
 
 Both functions allow for vector arguments.
 }
@@ -79,12 +79,14 @@ Logical. If \code{TRUE} it force the unit to have the same variance of errors (l
 }
   \item{se}{Usually \code{NULL}. It is a matrix of unit-specific standard errors. If not supplied it is estimated by the algorithm.
 }
-  \item{replaceNA.coeffWithin}{ deafult is \code{NA}
+  \item{replaceNA.coeffWithin}{ deafult is \code{NA} i.e. no replacement. You can provide a specific value (or a vector of values). You can also choose among "coeffMeans" and "unitMeans" (i.e. mean along columns or along rows of Y).
 }
-  \item{replaceNA.coeffWithin.se}{deafult is \code{Inf}
+  \item{replaceNA.coeffWithin.se}{deafult is \code{Inf}. Use the same options of \code{replaceNA.coeffWithin} (but means are over the variances and then rooted).
 }
 \item{\dots}{Further parameters. 
 \code{test.coeffWithin} Vector of names or IDs of within-unit variables that have to be tested (and reported). Note that variables not in the list are used in the model (i.e. the they play the role of nuisance parameters).
+\code{fastSumCombination},\code{onlyMANOVA} and \code{linComb} are used in \code{flipMix} to deal with combination of variables/coefficents.
+
 See also the function \code{\link{flip}} for other parameters.
 }
 }
@@ -143,13 +145,13 @@ modelWithin <- list(Y1=lm(Y1~Within,data=toyData),Y2=lm(Y2~Within,data=toyData))
 ###Testing Within-unit effects
 ## The resulting test is approximated. The estimate of the variance within units 
 ## takes in account the presence of effects between units.
-(flipMix(modelWithin=as.matrix(toyData[,c("Y1","Y2")])~Within,data=toyData, units= ~subj, 
-        perms=1000,testType="permutation",statTest="t"))
+(flipMix(modelWithin=as.matrix(toyData[,c("Y1","Y2")])~Within,data=toyData, 
+        units= ~subj, perms=1000,testType="permutation",statTest="t"))
 
 ###The resulting tests are exact. If effects between are presents, 
 ## statTest="Tnaive" or "TBTWest" are more suitable:
-(res=flipMixWithin(modelWithin=as.matrix(toyData[,c("Y1","Y2")])~Within,data=toyData, units= ~subj, 
-        perms=1000,statTest=c("TH1est")))
+(res=flipMixWithin(modelWithin=as.matrix(toyData[,c("Y1","Y2")])~Within,data=toyData, 
+        units= ~subj, perms=1000,statTest=c("TH1est")))
 npc(res)
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the

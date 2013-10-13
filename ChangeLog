@@ -16,7 +16,15 @@
 - minor bugs fixed.
 
 2.4 (2013.10.09)
-- implemented Mahalanobis combining function for function npc()
+- implemented Mahalanobis combining function for function npc().
 - implemented exact solution for fixed effects in mixed models (flipMixWithin).
-- global test for flipMix have been moved from flipMix to npc, which now allow for new testStat(istic)
+- global test for flipMix have been moved from flipMix to npc, which now allows for new testStat options.
+- minor bugs fixed.
+
+2.4.1 (2013.10.13)
+- minor bugs fixed.
+
+2.4.2 (2014.04.13)
+- rom() (random orthogonal matrix) function have been (compiled) and implemented.
+- kfwer options for flip.adjust() performs generalized familiwise error rate for permutation tests.
 - minor bugs fixed.

@@ -6,15 +6,14 @@
 # permP.return, permT.return, permSpace.return : logical: shoul space of p-values, of statistic and of signs be returned?
 ############################
 .symmetry.nptest <- function(data, perms=5000, statTest="t",  tail = NULL, testType="permutation",...){
-
 	if(is.function(statTest)) {
 		test<-statTest
-	} else if(statTest=="t"){
+	} else if(statTest%in%c("t","sum")){
 		if (testType=="rotation") {
-		test <- .t.rotation.nptest.1sample
-		} else ## permutation test
-		test <- .t.symmetry.nptest
-	} else if(statTest%in%c("Wilcoxon","ranks","Sign")){
+      test <- .t.rotation.nptest.1sample
+      } else ## permutation test
+        test <- .t.symmetry.nptest
+	} else if(statTest%in%c("Wilcoxon","rank","Sign")){
 		if (testType=="rotation") warning("Rotations are not allowed for Wilcoxon (i.e. ranks) test, permutations will be used instead.")
 		 ## permutation test
 		test <- .rank.symmetry.nptest
@@ -55,7 +54,7 @@
   return(list(permT=permT,perms=perms,tail=tail,extraInfoPre=list(Test=statTest)))
 }
 
-######signed rank test
+######signed ranks test
 .rank.symmetry.nptest <- function(){
   if(statTest=="Sign"){
     data$Y=sign(data$Y)  
@@ -119,10 +118,10 @@
   perms <- make.permSpace(1:Ns,perms,testType=testType)
   digitsK=trunc(log10(perms$B))+1
   
-  permT=matrix(,perms$B+1, ncol(data$Y))
+  permT=matrix(,perms$B, ncol(data$Y))
   permT[1,]=colSums(data$Y)
-  for(i in 2:(1+perms$B)) { 
-      if (i%%10==0) {
+  for(i in 2:(perms$B)) { 
+      if (i%%1000==0) {
         cat(rep("\b", 2*digitsK+3), i, " / ", perms$B, sep="")
         flush.console()
       }

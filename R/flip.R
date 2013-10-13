@@ -4,7 +4,7 @@ flip.statTest <-
 	"Wilcoxon","Kruskal-Wallis", "kruskal", "rank", "Mann-Whitney",
 	"chisq","chisq.separated", "Fisher",
 	#"KS", "kolmogorow", "Kolmogorow-Smirnov", "ad",
-  "McNemar", "Sign","sum","NA")
+  "McNemar", "Sign","sum","coeff","NA")
 
 .get.statTest <- function(statTest){ 
 	if(is(statTest,"function")) return(statTest) else
@@ -32,10 +32,9 @@ flip <- function(Y, X=NULL, Z=NULL, data=NULL, tail = 0, perms = 1000, statTest=
     statTest <- .get.statTest(statTest)
 	
   if(is.null(testType)){
-	if(is.null(list(...)$rotationTest) || (!list(...)$rotationTest) ) {testType="permutation"; rotationTest=FALSE } else { testType="rotation"; rotationTest=TRUE} 
+	if(is.null(list(...)$rotationTest) || (!list(...)$rotationTest) ) {testType="permutation"} else { testType="rotation"} 
   } 
-  testType=match.arg(testType,c("permutation","rotation"))
-  rotationTest= (testType=="rotation")
+  testType=match.arg(testType,c("permutation","rotation","symmetry"))
 
   if(missing(flipReturn)||is.null(flipReturn)) 
     flipReturn=list(permT=TRUE,permP=FALSE,permSpace=FALSE,test=TRUE,permID=TRUE)
@@ -46,14 +45,14 @@ flip <- function(Y, X=NULL, Z=NULL, data=NULL, tail = 0, perms = 1000, statTest=
   
   if(!is.function(statTest)){
     # get matrices from inputs
-    data <- .getXY(Y,X,Z,data,rotationTest=rotationTest,dummyfy=list(...)$dummyfy,statTest=statTest,Strata=Strata)
+    data <- .getXY(Y,X,Z,data,rotationTest=(testType=="rotation"),dummyfy=list(...)$dummyfy,statTest=statTest,Strata=Strata)
     rm(X,Y,Z,Strata)
     
     symmetryTest= is.null(data$X) || (length(unique(data$X))==1)
   
     #check if the problem can be set as one sample problem
     if(!symmetryTest) if(!is.function(statTest))
-  	if(statTest%in% c("t","sum","rank","Wilcoxon","McNemar","Sign"))
+  	if(statTest%in% c("t","sum","ranks","Wilcoxon","McNemar","Sign"))
   	  if(  !is.null(data$Strata) ){#is.null(data$Z)|| ncol(data$Z)==0)  &
   			keep=setdiff(1:ncol(data$X),.getIntercept(data$X))
   			if( (length(unique(data$X[,keep]))==2) && 
@@ -113,9 +112,10 @@ flip <- function(Y, X=NULL, Z=NULL, data=NULL, tail = 0, perms = 1000, statTest=
     
     
     obs=statTest(Y)
-    permT=matrix(,perms$B+1,length(obs))
+    permT=matrix(,perms$B,length(obs))
+    colnames(permT)=names(obs)
     permT[1,]=obs
-    for(i in 2:(1+perms$B))
+    for(i in 2:(perms$B))
       {permT[i,]=statTest(Y[sample(perms$n),,drop=FALSE] )
               if (i%%10==0) {
                 cat(rep("\b", 2*digitsK+3), i, " / ", perms$B, sep="")
@@ -124,7 +124,7 @@ flip <- function(Y, X=NULL, Z=NULL, data=NULL, tail = 0, perms = 1000, statTest=
     }
     flush.console()
     cat("\n")
-    colnames(permT)=.getTNames(Y,,permT=permT,checkUnique=TRUE)
+    if(is.null(colnames(permT)))  colnames(permT)=.getTNames(Y,,permT=permT,checkUnique=TRUE)
     rownames(permT)=.getTRowNames(permT)		  
     res=list(permT=permT,perms=perms,tail=tail,extraInfoPre=list(Test="Custom"))
   }

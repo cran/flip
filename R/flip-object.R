@@ -9,7 +9,7 @@ setClassUnion("data.frameOrNULL", c("data.frame", "NULL"))
 setClassUnion("numericOrmatrixOrcharacterOrNULL", c("numeric","matrix", "NULL","character"))
 setClassUnion("envOrNULL", c("environment", "NULL"))
 
-#############da togliere per compilazione (esistno gia in someMTP)
+# #############da togliere per compilazione (esistno gia in someMTP)
 #  setClassUnion("numericOrNULL", c("numeric", "NULL"))
 #  setClassUnion("listOrNULL", c("list", "NULL"))
 #  require(e1071)
@@ -54,17 +54,31 @@ setMethod("show", "flip.object", function(object)
 })
 
 setGeneric("summary")
-setMethod("summary", "flip.object", function(object, ...)
+setMethod("summary", "flip.object", function(object,star.signif=TRUE,only.p.leq=NULL,...)
 {
   nperms= as.list(object@call$perms)
-  cat(" \"flip.object\" object of package flip\n")
+  #cat(" \"flip.object\" object of package flip\n")
   cat(" Call:\n ")
   cat(deparse(object@call), "\n")
   # cat(ifelse(is.null(nperms$seed),"all",""), nperms$B, ifelse(is.finite(nperms$seed),"random",""), "permutations.\n",   
 	# ifelse(is.finite(nperms$seed),paste("(seed: ",is.finite(nperms$seed)," )",sep=""),"")) 
-  cat(nperms$B+1, "permutations.",sep=" ")
+  cat(object@permSpace$B-1, "permutations.",sep=" ")
   cat("\n")
-  show(object)
+  if(!is.null(only.p.leq))  object@res=object@res[object@res[,ncol(object@res)]<=only.p.leq,,drop=FALSE]
+  
+  if(is.null(star.signif)) star.signif=TRUE 
+  if(is.logical(star.signif)) {
+    if(star.signif) {
+      #takes the last column among raw and Ajusted p-value
+      column=c("p-value",names(object@res)[grep("Adjust",names(object@res))])
+      column=column[length(column)]
+    }
+  } else { column=star.signif; star.signif=TRUE}
+  if(star.signif){object@res$"sig."=sapply((object@res[,column]<=.05)+
+                                  (object@res[,column]<=.01)+
+                                  (object@res[,column]<=.001),function(x) paste(rep("*",x),collapse=""))
+  }
+  result(object,...)
 })
 
 
@@ -72,10 +86,15 @@ setMethod("summary", "flip.object", function(object, ...)
 # Functions to extract relevant information from 
 # a flip.object object
 #==========================================================
-setGeneric("result", function(object, ...) standardGeneric("result"))
+setGeneric("result", function(object,...) standardGeneric("result"))
 setMethod("result", "flip.object",
-  function(object) { 
-  print(object@res, digits = 4)  
+  function(object,...) { 
+    for(i in c("p-value",names(object@res)[grep("Adjust",names(object@res))])){
+      lower=(object@res[,i]<.0001)
+      object@res[,i]=formatC(object@res[,i],digits=4,drop0trailing=FALSE,format="f")
+      object@res[lower,i]="<.0001"
+    }
+      print(object@res, digits = 4)  
 })
 
 # #==========================================================
@@ -104,17 +123,23 @@ cFlip <- function(...) {
   res=list(...)[[1]]
     if(length(list(...))>1){
 		nperms=sapply(list(...),function(xx) nrow(xx@permT))
-		if(length(unique(nperms))==1) 
-        for(i in 2:length(list(...)))  res@permT=cbind(res@permT,list(...)[[i]]@permT)
-		else{
-			warning("The tests does not have the same number of permutations, only the first permT will be retained.")
-			res@permT=list(...)[[1]]@permT
-			}
+		if(length(unique(nperms))>1) {
+      warning("The flip-objects have different number of permutations, the minimum number will be retained for each test.")
+      nperms=min(nperms)
+		} else nperms=nperms[1]
+
+    for(i in 2:length(list(...)))  res@permT=cbind(res@permT[1:nperms,,drop=FALSE],list(...)[[i]]@permT[1:nperms,,drop=FALSE])
+		
 		res@tail = as.vector(unlist(sapply(1:length(list(...)), function(i)  rep(if(is.null(list(...)[[i]]@tail)) 0 else list(...)[[i]]@tail,length.out=ncol(list(...)[[i]]@permT))
                       )))
 		# migliore questo output, ammettere la presenza di altri elementi in extraInfoPre
-	  for(i in 2:length(list(...)))  res@permT=cbind(res@permT,list(...)[[i]]@permT)
-		for(i in 2:length(list(...)))  res@res=rbind(res@res,list(...)[[i]]@res)
+		resNames=unique(as.vector(sapply(list(...),function(xx) colnames(xx@res))))
+		resNames=c(setdiff(resNames,c("Stat","p-value")),c("Stat","p-value"))
+		res@res[,setdiff(resNames,colnames(res@res))]=NA
+		res@res=res@res[,resNames]
+		for(i in 2:length(list(...)))  {
+      res@res[nrow(res@res)+(1:nrow(list(...)[[i]]@res)),colnames(list(...)[[i]]@res)]=list(...)[[i]]@res
+		}
 	}
 	res
 }
@@ -271,8 +296,8 @@ setMethod("p.adjust", matchSignature(signature(p = "flip.object"), p.adjust),
 setGeneric("hist", function(x,...) standardGeneric("hist"))
 #setMethod("hist", matchSignature(signature(x = "flip.object"), hist), 
 setMethod("hist", "flip.object", function(x, ...)  {
-
-  flip.hist <- function(x, breaks=20, main="", xlab = "Permutation test statistics", ...) {
+  
+  flip.hist <- function(x, breaks=100, main="", xlab = "Permutation test statistics", ...) {
 
      if (length(x) > 1)
      stop("length(object) > 1. Please reduce to a single test result")
@@ -287,12 +312,18 @@ setMethod("hist", "flip.object", function(x, ...)  {
       # subset <- x@subsets[[1]]
   
     #recalculate <- x@functions$permutations(subset, weights)
-    Qs <- x@permT[-1,] #recalculate$permS
+    
     Q <- x@permT[1,]
-    nperm <- length(Qs)
-    hst <- hist(Qs, xlim = c(1.1 * min(0, Qs, Q), 1.1 * max(Qs, Q)), breaks = breaks, 
+    nperm <- length(x@permT-1)
+    hst <- hist(x@permT, xlim = c(1.1 * min(0, x@permT), 1.1 * max(x@permT)), breaks = breaks, 
       main = main, xlab = xlab, ...)
-    h <- max(hst$counts)
+     if(is.null(list(...)$freq) & is.null(list(...)$probability)) 
+       h <- max(hst$counts) else {
+         if(c(1-list(...)$freq,list(...)$probability)>0 ) 
+           h <- max(hst$density) else  
+             h <- max(hst$counts)
+       }
+     
     arrows( Q, h/2, Q, 0 , lwd=2)
     text( Q, h/2, 'Observed\ntest\nstatistic' , pos=3)
   
@@ -320,7 +351,17 @@ setMethod("plot", "flip.object",
   plot.flip <- function(x, y=NULL, main, xlab, ylab,...){
     #draw <- function(x, main, xlab, ylab,...){
     if (length(x)==1 ){
-      hist(x, breaks=20, ...)
+      hist(x, ...)
+    } else if (length(x)==2 ){
+      plot(x@permT, xlim=range(x@permT[,1]), ylim=range(x@permT[,2]),
+           xlab=colnames(x@permT)[1],
+           ylab=colnames(x@permT)[2],
+           main= "Permutation Space" ,
+           col="darkgrey",
+           bg="orange",pch=21,lwd=1,cex=1,asp=1)
+      
+      points(x@permT[1,1],x@permT[1,2],col="darkgrey",bg="blue",cex=2,lwd=2,pch=21)
+      text(x@permT[1,1],x@permT[1,2],labels="ObsStat")
     } else { 
       pc=prcomp(x@permT,scale. =FALSE,center=FALSE)
       #obs is always on top-right quadrant:

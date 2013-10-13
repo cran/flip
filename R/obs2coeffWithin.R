@@ -11,7 +11,7 @@ obs2coeffWithin <- function(modelWithin,units,X=NULL, Z=NULL, data=NULL,equal.se
   
   
   .obs2coeffWithin<-function(modelWithin,units=units, data=data,se=se,...){
-		if(is(modelWithin,"vgam")) #e quindi anche vglm ed anche 
+		if(is(modelWithin,"vgam")|is(modelWithin,"vglm")) #e quindi anche vglm ed anche 
 			out=.obs2coeffWithin.vglm(modelWithin,units=units, data=data,se=se,...) else
 		if(is(modelWithin,"glm")) 
 			out=.obs2coeffWithin.glm(modelWithin,units=units, data=data,se=se,...) else
@@ -48,13 +48,17 @@ out
 	names(idClust)=idClust
 	nUnit=length(unique(idClust))
 	ncoef=length(coefficients(modelWithin))
-	colNames =  paste(rep(colnames(coefficients(modelWithin)),rep(length(rownames(coefficients(modelWithin))),length(colnames(coefficients(modelWithin))))),rep(rownames(coefficients(modelWithin)),length(colnames(coefficients(modelWithin)))),sep=".")
-	if(length(colNames)<1) colNames=names(coefficients(modelWithin))
+  colNames= colnames(vcov(modelWithin))
+# 	colNames =  paste(rep(colnames(coefficients(modelWithin)),
+#                     rep(length(rownames(coefficients(modelWithin))),
+#                         length(colnames(coefficients(modelWithin))))),
+#                     rep(rownames(coefficients(modelWithin)),length(colnames(coefficients(modelWithin)))),sep=".")
+  if(length(colNames)<1) colNames=names(coefficients(modelWithin))
 	
 	res=.getEmptyFlipMix(colNames = colNames,idClust=idClust,nUnit=nUnit,ncoef=ncoef)
 	
 	for(idsel in idClust )  {
-		newmodel = try(update(modelWithin,subset=(units==idsel)),silent = TRUE)
+  	newmodel = try(update(modelWithin,subset=(units==idsel),na.action=na.omit),silent = TRUE)
 		if(!is(newmodel,"try-error")){
 			res$coeffWithin[idsel,]=as.vector(coef(newmodel))
 			res$se[idsel,]=if(!is.null(dim(coefficients(modelWithin)))) 
@@ -68,7 +72,8 @@ out
 			temp=if(!is.null(dim(coefficients(modelWithin)))) as.vector(sapply(summary(newmodel),function(x)x$df[1:2])) else as.vector(summary(newmodel)$df[1:2])
 			res$df.mod[idsel,] = 1
 			res$df.res[idsel,] =  newmodel$df.residual
-			res$covs[idsel,,]= vcov(newmodel)
+        temp=vcov(newmodel)
+			res$covs[idsel,colnames(temp),colnames(temp)]= temp
 		}
 	}
 	####? serve?
@@ -101,7 +106,7 @@ out
 			
 				#TODO renderla una matrice triangolare per risparmiare memoria? vale la pena?
 				res$coeffWithin[idsel,rownames(temp)]=temp[,"Estimate"]
-				res$se[idsel,rownames(temp)]=temp[,"Std. Error"]											
+				res$se[idsel,rownames(temp)]=temp[,"Std. Error"]	()
 				res$df.mod[idsel,rownames(temp)] = rep(dim(temp)[1],dim(temp)[1])
 				res$df.res[idsel,1] =  sum(units==idsel)-dim(temp)[1]
 				res$covs[idsel,rownames(temp),rownames(temp)]=summary(newmodel)$cov.scaled
@@ -130,9 +135,9 @@ out
 	idClust=unique(units)
 	names(idClust)=idClust
 	nUnit=length(unique(idClust))
-	ncoef=length( coefficients(modelWithin)) 
-	
-	res=.getEmptyFlipMix()
+	ncoef=length( coefficients(modelWithin))
+	colNames=names(coefficients(modelWithin))
+	res=.getEmptyFlipMix(colNames=colNames,idClust=idClust,ncoef=ncoef,nUnit=nUnit)
 	
 	for(idsel in idClust )  {
 		newmodel = try(update.vglm(modelWithin,subset=(units==idsel)),silent = TRUE)
@@ -148,7 +153,7 @@ out
 				#TODO renderla una matrice triangolare per risparmiare memoria? vale la pena?
 				res$coeffWithin[idsel,rownames(temp)]=temp[,"Estimate"]
 				res$se[idsel,rownames(temp)]=temp[,"Std. Error"]											
-				res$df.mod[idsel] = rep(dim(temp)[1],dim(temp)[1])
+				res$df.mod[idsel] = rep(nrow(temp),nrow(temp))
 				res$df.res[idsel,rownames(temp)] =  sum(units==idsel)-dim(temp)[1]
 				res$covs[idsel,rownames(temp),rownames(temp)]=covCoeff
 		}
@@ -224,25 +229,28 @@ out
 		if(!all(dim(as.matrix(se))==c(length(idClust),ncoef))) se=matrix(se[1:min(ncoef,prod(dim(se)))],ncol=ncoef,nrow=length(idClust),byrow=TRUE)
 	res$se[!is.na(se)] <- se[!is.na(se)]
 	}
-	##missing df.res are forces to 0
+	##NULL df.res are forces to 0
 	if(!is.null(res$df.res)) res$df.res[is.na(res$df.res)]=0
 
-	
-	if(any(is.na(res$coeffWithin)))
-		if(is.na(replaceNA.coeffWithin)) 
-			for(i in which(apply(res$coeffWithin,2,function(x) any(is.na(x))) )){ 
-				res$coeffWithin[is.na(res$coeffWithin[,i]),i]=mean(res$coeffWithin[,i],na.rm=TRUE)
-				res$se[is.na(res$coeffWithin[,i]),i]=max(c(1,res$se[,i]),na.rm=TRUE)*1E3
-		} else {
-			if(!is.na(as.double(replaceNA.coeffWithin))) 
-				res$coeffWithin[is.na(res$coeffWithin)]=as.double(replaceNA.coeffWithin) else
-			if(replaceNA.coeffWithin=="varMean")
-				for(i in which(apply(res$coeffWithin,2,function(x) any(is.na(x))) )) 
-					res$coeffWithin[is.na(res$coeffWithin[,i]),i]=mean(res$coeffWithin[,i],na.rm=TRUE) else
-			if(replaceNA.coeffWithin=="obsMean")
-				for(i in which(apply(res$coeffWithin,1,function(x) any(is.na(x))) )) 
-					res$coeffWithin[i,is.na(res$coeffWithin[i,])]=mean(res$coeffWithin[i,],na.rm=TRUE)
-		}
+	if(any(is.na(res$coeffWithin))){
+	  if(!is.na(replaceNA.coeffWithin)){
+      if(is.numeric(replaceNA.coeffWithin)){
+        warning(paste("Some estimated coefficient within unit is NA, the value ",replaceNA.coeffWithin," will be imputed.",sep=""))
+        res$coeffWithin[is.na(res$coeffWithin)]=rep(as.double(replaceNA.coeffWithin),
+                                                    length.out=sum(is.na(res$coeffWithin)))
+        
+        } else {
+          warning("Some estimated coefficient within unit is NA, the value will be imputed (estimated from the data).")
+          if(replaceNA.coeffWithin=="coeffMeans"){
+            for(i in which(apply(res$coeffWithin,2,function(x) any(is.na(x))) )) 
+              res$coeffWithin[is.na(res$coeffWithin[,i]),i]=mean(res$coeffWithin[,i],na.rm=TRUE) 
+            } else if(replaceNA.coeffWithin=="unitMeans") {
+              for(i in which(apply(res$coeffWithin,1,function(x) any(is.na(x))) )) 
+                res$coeffWithin[i,is.na(res$coeffWithin[i,])]=mean(res$coeffWithin[i,],na.rm=TRUE)
+            }
+        }
+	  }
+	}
 	
 	if((!is.null(equal.se)) && equal.se) {
 		w=res$df.res
@@ -263,16 +271,28 @@ out
       }     
 	}
 	
-	if(any(is.na(res$se))){
-		if(!is.na(as.double(replaceNA.coeffWithin.se))) 
-			res$se[is.na(res$se)]=min(as.double(replaceNA.coeffWithin.se),max(c(1,res$se[!is.na(res$se)])*1E3)) else
-		if(replaceNA.coeffWithin.se=="varMean")
-			for(i in which(apply(res$se,2,function(x) any(is.na(x))) )) 
-				res$se[is.na(res$se[,i]),i]=sqrt(mean(res$se[,i]^2,na.rm=TRUE)) else
-		if(replaceNA.coeffWithin.se=="obsMean")
-			for(i in which(apply(res$se,1,function(x) any(is.na(x))) )) 
-				res$se[i,is.na(res$se[i,])]=sqrt(mean(res$se[i,]^2,na.rm=TRUE))
-	}
+  if(any(is.na(res$se)|(!is.finite(res$se)))){
+    if(is.numeric(replaceNA.coeffWithin.se)){
+      res$se[is.na(res$se)]=rep(as.double(replaceNA.coeffWithin.se),length.out=sum(is.na(res$se)))
+    } else if(replaceNA.coeffWithin.se=="coeffMeans"){
+      for(i in which(apply(res$se,2,function(x) any(is.na(x))) )){ 
+        res$se[is.na(res$se[,i]),i]=sqrt(mean(res$se[,i]^2,na.rm=TRUE))
+      }
+      covAve=apply(res$covs,c(2,3),mean,na.rm=TRUE)
+      for(i in 1:nrow(res$covs)){ 
+        getNA=which(is.na(res$covs[i,,]))
+        if(length(getNA)>0) {
+          temp=res$covs[i,,]
+          temp[getNA]=covAve[getNA]
+          res$covs[i,,]=temp
+        }
+      }
+    } else if(replaceNA.coeffWithin.se=="unitMeans") {
+      for(i in which(apply(res$se,1,function(x) any(is.na(x))))) 
+        res$se[i,is.na(res$se[i,])]=sqrt(mean(res$se[i,]^2,na.rm=TRUE))
+    }
+  }
+  if(is.null(res$Z)) res$Z=matrix(,nrow(res$X),0)
 	res
 }
 

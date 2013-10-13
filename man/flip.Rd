@@ -1,13 +1,14 @@
 \name{flip}
 \alias{flip}
 \alias{flip.statTest}
+\alias{orthoZ}
 
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{
-The main function for univariate and multivariate testing under a permutation (and rotation) framework
+The main function for univariate and multivariate testing under a permutation (and rotation) framework + some utilities.
 }
 \description{
-The general function for permutation (or rotation) test.
+\code{flip} is the main function for permutation (or rotation) test.
 
 It allows for multivariate one sample, C>=2 samples and any regression tests. Also the use of covariates (to be fitted in the model but) not under test is allowed.
 }
@@ -16,11 +17,12 @@ flip(Y, X=NULL, Z=NULL, data=NULL, tail = 0, perms = 1000, statTest=NULL,
      Strata=NULL, flipReturn, testType=NULL, ...)
 
 flip.statTest
-#   = c("t", "F", "ANOVA",
-#	"Wilcoxon","Kruskal-Wallis", "kruskal", "rank", "Mann-Whitney",
+#    c("t", "F", "ANOVA",
+#  "Wilcoxon","Kruskal-Wallis", "kruskal", "rank", "Mann-Whitney",
 #	"chisq","chisq.separated", "Fisher",
-#    "McNemar", "Sign","sum")
+#  "McNemar", "Sign","sum","coeff","NA")
 
+orthoZ(Y, X=NULL, Z=NULL, data=NULL, returnGamma=FALSE)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -49,11 +51,13 @@ Choose from \code{flip.statTest}. See also Details section.
 \item{flipReturn}{list of objects indicating what will be included in the output.
 
  e.g. \code{list(permP=TRUE,permT=TRUE,data=TRUE)}.}
-\item{testType}{
-by default \code{testType="permutation"}. In alternative you can choose \code{"rotation"}
+ 
+\item{testType}{by default \code{testType="permutation"}. In alternative you can choose \code{"rotation"}
 resampling is performed through random linear combinations (i.e. a rotation test is performed). This option is useful when only few permutations are available, that is, minimum reachable significance is hight.
 The old syntax \code{rotationTest=TRUE} is maintained for compatibility  but is deprecated, use \code{testType="rotation"} instead.
 }
+
+\item{returnGamma}{logical. Should be the eigenvectors (with corresponding non-null eigenvalues) of the anti-projection matrix of \code{Z} (i.e. I- Z(Z'Z)^-1 Z') returned?}
 
 \item{\dots}{Further parameters. The followings are still valid but deprecated:
  
@@ -74,7 +78,8 @@ The old syntax \code{rotationTest=TRUE} is maintained for compatibility  but is 
 from the fit of a multiple (multivariate) linear models, since the correlation does not consider the other covariates).  The test \code{t} is valid only under the assumption that each variable in X is independent of each variable in Y. To get adequate test while adjusting for covariates, use \code{Z} (see example below)
 The test statistic \code{"sum"} is the sum  of values (or frequencies) of the given sample 
 centered on the expected (i.e. computed on the overall sample).
-It performs all possible comparisons among values of \code{X} and \code{Y} (i.e. it does not produce only one test. p-values can be combined using \code{npc}).
+\code{"coeff"} is the statistic based on the estimated coefficient of lm.
+It produce a test for every possible combination of (columns of) \code{X} and \code{Y} (p-values can be combined using \code{npc}).
 
 \code{"ANOVA"} is synonyms of \code{"F"}. Only valid for dependence tests (i.e. non constant \code{X}). 
 \code{"Mann-Whitney"} is synonyms of \code{"Wilcoxon"}. 

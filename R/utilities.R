@@ -8,9 +8,13 @@ i<-permSpace<-testType<-statTest<-return.permIDs<-P<-idClust<-test <-j <- otherP
   if(!is.null(data$W)) return(data)
   data$W=array(,dim(data$Y))
   dimnames(data$W)=dimnames(data$Y)
+  if(!is.null(data$covs))
   for(j in 1:nrow(data$covs)) {
-    data$W[j,]=1/sqrt(diag(data$Su) + diag(data$covs[j,,]))
-  }	
+    data$W[j,]=1/sqrt(diag(data$Su) + diag(matrix(data$covs[j,,])))
+  }	else
+    for(j in 1:nrow(data$se)) {
+      data$W[j,]=1/sqrt(diag(data$Su) + diag(matrix(data$se[j,]^2)))
+    }  
   data
 }
 
@@ -89,7 +93,7 @@ i<-permSpace<-testType<-statTest<-return.permIDs<-P<-idClust<-test <-j <- otherP
   X <- .getAlternative(X, data= if(is.null(data)) data.frame(Y) else data, n,dummyfy=dummyfy,forceFactor=forceFactor)
   attrXassign=attributes(X)$assign
   attrXfactors=attributes(X)$factors
-  
+  #browser()
   if(!is.null(Z)){
     Z <- .getNull(Z, data, n)
     offset <- Z$offset   
@@ -167,13 +171,8 @@ i<-permSpace<-testType<-statTest<-return.permIDs<-P<-idClust<-test <-j <- otherP
   attributes(X)$assign=attrXassign
   attributes(X)$factors=attrXfactors
   options(ref.cat =oldRefCat)
-  
-  if(is.null(Z) && !any(.getIntercept(X)))   X=cbind(1,X)
-  if(!is.function(statTest) && statTest%in%c("t", "F")) {
-    data <- list(Y=Y,X=X,Z=Z,Strata=Strata,intercept=FALSE)
-    data <- .orthoZ(data)
-    return(data)
-  } else  { return(list(Y=Y,X=X,Z=Z,Strata=Strata,intercept=FALSE))}
+  if((is.null(Z) && !any(.getIntercept(X))) & rotationTest )   Z=matrix(1,nrow(X))
+  return(list(Y=Y,X=X,Z=Z,Strata=Strata,intercept=FALSE))
 }
 
 ##########################
@@ -346,14 +345,18 @@ i<-permSpace<-testType<-statTest<-return.permIDs<-P<-idClust<-test <-j <- otherP
 .getIntercept <- function(X) apply(X,2,function(x)length(unique(x))==1)
 
 ##############################################
+orthoZ <- function(Y, X=NULL, Z=NULL, data=NULL,returnGamma=FALSE){ 
+  data=.orthoZ (list(Y=Y, X=X, Z=Z),returnGamma=returnGamma)
+}
 
-.orthoZ <- function(data,returnGamma=FALSE){
-  if(is.null(data$Z) || (ncol(data$Z)==0)) return(data)
+#####
+.orthoZ <- function(data,returnGamma=FALSE){  
+  if(is.null(data$Z) || (length(data$Z)==0)) return(data)
   attrsYassign<-attributes(data$Y)$assign
   attrsXassign<-attributes(data$X)$assign
   ZZ= try(solve(t(data$Z) %*% data$Z),silent=TRUE)
   if(is(ZZ,"try-error")) {warning("Data can not be orthoganalized"); return(data)}
-  IP0 <- diag(nrow(data$Z)) - data$Z %*% solve(t(data$Z) %*% data$Z) %*% t(data$Z)
+  IP0 <- diag(nrow(data$Z)) - data$Z %*% ZZ %*% t(data$Z)
   IP0 <- (IP0 + t(IP0))/2
   ei=eigen(IP0)
   if(any(is.complex(ei$values))) {warning("Data can not be orthoganalized"); return(data)}
@@ -527,7 +530,7 @@ i<-permSpace<-testType<-statTest<-return.permIDs<-P<-idClust<-test <-j <- otherP
 ###########################################################
 
 ################### get results
-.getOut <- function(type="flip",res=NULL, data=NULL, call=NULL, flipReturn=list(permT=TRUE),
+.getOut <- function(type="flip",res=NULL, data=NULL, call=NULL, flipReturn=list(permT=TRUE,call.env=TRUE),
                     separatedX=TRUE,extraInfoPre=NULL,extraInfoPost=NULL,call.env=NULL,...){ 
   colnames(res$permT)=.getTNames(data$Y,data$X,permT=res$permT) 
   
@@ -544,20 +547,18 @@ i<-permSpace<-testType<-statTest<-return.permIDs<-P<-idClust<-test <-j <- otherP
     dir=.setTailOut (permT=res$permT, tail=res$tail)		
     #build the results table
     TAB=data.frame(Stat=as.vector(stat),#sd.permT=as.vector(stDev), pseudoZ=as.vector(pseudoZ),
-                   tail=as.vector(dir), p=as.vector(p))
-    colnames(TAB)[colnames(TAB)=="p"]="p-value"
-    rownames(TAB)=colnames(res$permT)
+                   tail=as.vector(dir), p=as.vector(p),stringsAsFactors =FALSE)
   } else if(type=="npc"){
     #build the results table
     TAB=data.frame(Stat=as.vector(stat),#sd.permT=as.vector(stDev), pseudoZ=as.vector(pseudoZ), 
-                   p=as.vector(p))
+                   p=as.vector(p),stringsAsFactors =FALSE)
     colnames(TAB)[colnames(TAB)=="nvar"]="#Vars"
-    colnames(TAB)[colnames(TAB)=="p"]="p-value"
-    rownames(TAB)=colnames(res$permT)
   }
   
-  if((!is.null(res$extraInfoPre))) TAB=cbind(data.frame(res$extraInfoPre),TAB)
-  if((!is.null(res$extraInfoPost))) TAB=cbind(TAB,data.frame(res$extraInfoPost))
+  if((!is.null(res$extraInfoPre))) {TAB=cbind(data.frame(res$extraInfoPre,row.names = NULL,stringsAsFactors =FALSE),TAB)}
+  if((!is.null(res$extraInfoPost))) {TAB=cbind(TAB,data.frame(res$extraInfoPost,row.names = NULL,stringsAsFactors =FALSE))}
+  colnames(TAB)[colnames(TAB)=="p"]="p-value"
+  rownames(TAB)=colnames(res$permT)
   
   out <- new("flip.object")  
   out @res = TAB
@@ -565,7 +566,6 @@ i<-permSpace<-testType<-statTest<-return.permIDs<-P<-idClust<-test <-j <- otherP
                        (!is.null(flipReturn$permID)&&flipReturn$permID)  ) 
     res$perms else res$perms[-which(names(res$perms)=="permID")]
   out @call = if(!is.null(call)) call
-  out @call$perms = res$perms[c("seed","B")]
   out @permP=if(!is.null(flipReturn$permP))if(flipReturn$permP) t2p(res$permT, obs.only=FALSE,tail=res$tail)
   out @permT=if(!is.null(flipReturn$permT))if(flipReturn$permT) res$permT
   out @data = if(!is.null(flipReturn$data))if(flipReturn$data) data
@@ -628,20 +628,20 @@ i<-permSpace<-testType<-statTest<-return.permIDs<-P<-idClust<-test <-j <- otherP
 
 #################################
 .prod.perms <- function(data,perms,testType="permutation"){
-  if(testType%in%c("permutation","rotation"))  {
+  if(testType%in%c("permutation","symmetry","rotation"))  {
     if(is.null(perms$permID)){
-      digitsK=trunc(log10(perms$B))+1
+       digitsK=trunc(log10(perms$B))+1
       envOrig<-environment(perms$rotFunct)
       environment(perms$rotFunct) <- sys.frame(sys.parent())
       obs=as.vector(t(data$X)%*%data$Y)
-      permT=matrix(,perms$B+1,length(obs))
+      permT=matrix(,perms$B,length(obs))
       permT[1,]=obs
-      rm(obs)
-      for(i in 1:perms$B) {
-        if (i%%10==0) {
-          cat(rep("\b", 2*digitsK+10), i, " / ", perms$B, sep="")
-          flush.console()
-        }
+      rm(obs)     
+      for(i in 1:(perms$B-1)) {
+#         if (i%%10==0) {
+#           cat(rep("\b", 2*digitsK+10), i, " / ", perms$B, sep="")
+#           flush.console()
+#         }
         permT[i+1,]=as.vector(t(data$X)%*%perms$rotFunct())
       }
       cat(rep("\b", 2*digitsK+1));  flush.console()
@@ -653,9 +653,18 @@ i<-permSpace<-testType<-statTest<-return.permIDs<-P<-idClust<-test <-j <- otherP
       m=ncol(data$Y)
       q=ncol(data$X)
       digitsK=trunc(log10(m))+1
-      permT=matrix(,perms$B+1,m*q)
-      for( i in 1:ncol(data$Y)){
-        permT[,(i-1)*q+(1:q)]=(matrix(data$Y[rbind(1:perms$n,perms$permID),i],ncol=perms$n,nrow=(perms$B+1)) %*% data$X)
+      if(testType=='symmetry')  { #on.exit(browser())
+        permT=matrix(,nrow(perms$permID)+1,m*q)
+        for( i in 1:ncol(data$X)){
+          XY=diag(data$X[,i])%*%data$Y
+          permT[,(0:(m-1))*q+i]=rbind(rep(1,perms$n),perms$permID) %*% XY
+      }
+        permT = rbind(permT,-permT[nrow(permT):1,,drop=FALSE])
+      } else  {
+        permT=matrix(,perms$B,m*q)
+        for( i in 1:ncol(data$Y)){
+          permT[,(i-1)*q+(1:q)]=(matrix(data$Y[rbind(1:perms$n,perms$permID),i],ncol=perms$n,nrow=(perms$B)) %*% data$X)
+        }
       }
     }
   } else {warning("test type not implemented (yet?)"); return(NULL)}
@@ -671,10 +680,10 @@ i<-permSpace<-testType<-statTest<-return.permIDs<-P<-idClust<-test <-j <- otherP
       envOrig<-environment(perms$rotFunct)
       environment(perms$rotFunct) <- sys.frame(sys.parent())
       obs=as.vector(apply((t(data$Y)%*%P)^2,1,sum))
-      permT=matrix(,perms$B+1,length(obs))
+      permT=matrix(,perms$B,length(obs))
       permT[1,]=obs
       rm(obs)
-      for(i in 1:perms$B){ 
+      for(i in 1:(perms$B-1)){ 
         if (i%%10==0) {
           cat(rep("\b", 2*digitsK+10), i, " / ", perms$B, sep="")
           flush.console()
@@ -689,13 +698,13 @@ i<-permSpace<-testType<-statTest<-return.permIDs<-P<-idClust<-test <-j <- otherP
     } else { #permutation test using IDs
       m=ncol(data$Y)
       digitsK=trunc(log10(m))+1
-      permT <- matrix(,perms$B+1,m)
+      permT <- matrix(,perms$B,m)
       for(i in 1:m){
         #       if (i%%10==0) {
         # 		    cat(rep("\b", 2*digitsK+5), i, " / ", m, sep="")
         # 		    flush.console()
         # 		  }
-        permT[,i]=rowSums((matrix(data$Y[rbind(1:perms$n,perms$permID),i],ncol=perms$n,nrow=(perms$B+1))%*%P)^2)
+        permT[,i]=rowSums((matrix(data$Y[rbind(1:perms$n,perms$permID),i],ncol=perms$n,nrow=(perms$B))%*%P)^2)
       }
       colnames(permT)=.getTNames(data$Y)
       rownames(permT)=.getTRowNames(permT)

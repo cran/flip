@@ -1,6 +1,6 @@
 ############################
 flip.npc.methods <-
-    c("Fisher", "Liptak", "Tippett", "MahalanobisT", "MahalanobisP", "minP", "maxT", "maxTstd", "sumT", "Direct", "sumTstd", "sumT2","data.sum","data.linComb","data.pc","data.trace")
+    c("Fisher", "Liptak", "Tippett", "MahalanobisT", "MahalanobisP", "minP", "maxT", "maxTstd", "sumT", "Direct", "sumTstd", "sumT2", "kfwer", "data.sum","data.linComb","data.pc","data.trace")
 ############################
 
 npc <- function(permTP, comb.funct = c(flip.npc.methods, p.adjust.methods) ,subsets=NULL,weights=NULL, stdSpace=FALSE, ...){
@@ -18,10 +18,14 @@ npc <- function(permTP, comb.funct = c(flip.npc.methods, p.adjust.methods) ,subs
     if(!is.null(list(...)$tail)) {  permTP@tail=tail  }
 		nperms = permTP@call$B
     
-    ##########flipMix type of combination
+    ##########flipMix type of combinations
     if(comb.funct %in% c("data.sum","data.pc","data.linComb","data.trace")) {
       if(comb.funct %in% c("data.trace")) test <- .trace.between.nptest
-      if(comb.funct %in% c("data.sum","data.linComb","data.pc")) test <-.t.between.nptest
+      if(comb.funct %in% c("data.sum","data.linComb","data.pc")) {
+        if(!is.null(list(...)$statTest)&&(list(...)$statTest == "F"))
+        test <-.F.between.nptest else
+          test <-.t.between.nptest         
+      }
       environment(test) <- permTP@call.env
       environment(test)$otherParams=list(...)
       environment(test)$otherParams$subsets=subsets
@@ -30,11 +34,10 @@ npc <- function(permTP, comb.funct = c(flip.npc.methods, p.adjust.methods) ,subs
       if(comb.funct %in% c("data.sum")) environment(test)$otherParams$linComb=1
       res=test()
 #      browser()
-      nVar=if(is.null(subsets)) ncol(environment(test)$data$Y) else sapply(subsets,length)
       if(!exists("flipReturn") || is.null(flipReturn)) 
-        flipReturn=list(permT=TRUE,permP=FALSE)
-#      browser()
-      out=.getOut(type="npc",res=list(permT=res$permT,extraInfoPre=list(comb.funct=comb.funct,nVar=nVar)),data=NULL,tail=list(...)$tail, call=match.call(), 
+        flipReturn=list(permT=TRUE,permP=FALSE,call.env=TRUE)
+      
+      out=.getOut(type="npc",res=list(permT=res$permT,extraInfoPre=list(comb.funct=comb.funct,nVar=res$extraInfoPre$nVar)),data=NULL,tail=list(...)$tail, call=match.call(), 
                 flipReturn=flipReturn,call.env=environment(test))
       return(out)
       

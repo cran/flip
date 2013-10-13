@@ -81,11 +81,11 @@
     
     return(list(permT=cbind(permT,permT0,permT1,permTbtw),
                 perms=perms,tail=tail,
-                extraInfoPre=list(Test=rep(statTest,each=p),
-                                   Su=c(if("Tnaive"%in%statTest) rep(NA,ncol(permT)) else NULL,
+                extraInfoPre=list(est.Su=c(if("Tnaive"%in%statTest) rep(NA,ncol(permT)) else NULL,
                                         if("TH0est"%in%statTest) Su else NULL,
                                         if("TH1est"%in%statTest) pmax(0,(em2-colMeans(data$Y)^2*n-Sw)/(n-1)) else NULL,
-                                        if("TBTWest"%in%statTest) SuBtw else NULL)
+                                        if("TBTWest"%in%statTest) SuBtw else NULL),
+                                  Test=rep(statTest,each=p)
                                         )))
 }
   
@@ -99,7 +99,7 @@
 flipMixWithin <- function(modelWithin,units, X=~1, perms=1000, data=NULL, tail=NULL,
                           statTest=NULL,flipReturn,
                           Su=NULL, equal.se=FALSE,se=NA,replaceNA.coeffWithin=0,
-                          replaceNA.coeffWithin.se=0, ...) {
+                          replaceNA.coeffWithin.se=Inf, ...) {
   
   otherParams= list(...)
   statTest=match.arg(statTest,c("TH0est","Tnaive","TH1est","TBTWest"),several.ok=TRUE)
@@ -111,7 +111,7 @@ flipMixWithin <- function(modelWithin,units, X=~1, perms=1000, data=NULL, tail=N
   
   # store the call
 call <- match.call()  
-  if(!(is.list(data) && (!is.data.frame(data)))) {
+  if(!(is.list(data) && (!is.data.frame(data)))) {    
     data<-obs2coeffWithin(modelWithin,Z=NULL,X=X,units=units, data=data,equal.se=equal.se,se=se,
                           replaceNA.coeffWithin=replaceNA.coeffWithin,replaceNA.coeffWithin.se=replaceNA.coeffWithin.se,...)
     if(is.null(data$se)) data$se=-t(apply(data$covs,1,diag))
