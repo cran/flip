@@ -46,6 +46,7 @@ i<-permSpace<-testType<-statTest<-return.permIDs<-P<-idClust<-test <-j <- otherP
     oldRefCat=options()$ref.cat
   }
   
+  
   # data default
   # if (missing(data) || is.null(data))
   # if(is.data.frame(Y) | (is.matrix(Y)))
@@ -70,7 +71,27 @@ i<-permSpace<-testType<-statTest<-return.permIDs<-P<-idClust<-test <-j <- otherP
       }
     } else X <- ~1 
   
-  if (missing(Z)) Z=NULL
+  
+  # remove terms from Z that are also in Y
+  if (missing(Z)) Z=NULL else if (is(Z, "formula") && is(Y, "formula") && 
+                                    identical(environment(Z), environment(Y))) 
+    {if( !( (length(attr(terms(Z, data=data), "term.labels"))==0) & 
+             (length(attr(terms(Y, data=data), "term.labels"))==0)  )) {
+      dup <- attr(terms(Y, data=data), "term.labels") %in% attr(terms(Z, data=data), "term.labels")
+      if (any(dup)) 
+        Y <- formula(terms(Y,data=data)[!dup])
+    }
+  } 
+  # remove terms from Strata that are also in Y
+  if (!is.null(Strata)) { if (is(Strata, "formula") && is(Y, "formula") && 
+                                identical(environment(Strata), environment(Y))) 
+    if( !( (length(attr(terms(Strata, data=data), "term.labels"))==0) & 
+            (length(attr(terms(Y, data=data), "term.labels"))==0)  )) {
+    dup <- attr(terms(Y, data=data), "term.labels") %in% attr(terms(Strata, data=data), "term.labels")
+    if (any(dup)) 
+      Y <- formula(terms(Y,data=data)[!dup])
+  }
+  }
   
   # remove terms from X that are also in Z
   if (is(Z, "formula") && is(X, "formula") && 
@@ -82,11 +103,21 @@ i<-permSpace<-testType<-statTest<-return.permIDs<-P<-idClust<-test <-j <- otherP
         X <- formula(terms(X,data=data)[!dup])
     }
   }
+  # remove terms from X that are also in Strata
+  if (is(Strata, "formula") && is(X, "formula") && 
+        identical(environment(Strata), environment(X))) {
+    if( !( (length(attr(terms(X, data=data), "term.labels"))==0) & (length(attr(terms(Strata, data=data), "term.labels"))==0)  )) {
+      dup <- attr(terms(X, data=data), "term.labels") %in% attr(terms(Strata, data=data), "term.labels")
+      if (all(dup)) stop("all covariates in X also in Strata")
+      if (any(dup)) 
+        X <- formula(terms(X,data=data)[!dup])
+    }
+  }
   #browser()  
   # evaluate Y, which may be one of the colnames of data
   if(is(Y,"formula")) Y <- model.frame(Y, data, drop.unused.levels = TRUE,na.action=na.pass)
   Y <- eval(Y, data, parent.frame(sys.nframe()))
-  
+  if(is.vector(Y)) Y=matrix(Y)
   n <- nrow(Y)
   
   # get Z and X
@@ -286,6 +317,7 @@ i<-permSpace<-testType<-statTest<-return.permIDs<-P<-idClust<-test <-j <- otherP
       stop("argument \"Z\" could not be coerced into a matrix")
     }
   }
+  
   if (is(Z, "formula")) {
     if (is.null(data)) {
       tnull <- terms(Z)
@@ -345,7 +377,7 @@ i<-permSpace<-testType<-statTest<-return.permIDs<-P<-idClust<-test <-j <- otherP
 .getIntercept <- function(X) apply(X,2,function(x)length(unique(x))==1)
 
 ##############################################
-orthoZ <- function(Y, X=NULL, Z=NULL, data=NULL,returnGamma=FALSE){ 
+orthoZ <- function(Y, X=NULL, Z=NULL, returnGamma=FALSE){ 
   data=.orthoZ (list(Y=Y, X=X, Z=Z),returnGamma=returnGamma)
 }
 
@@ -412,20 +444,16 @@ orthoZ <- function(Y, X=NULL, Z=NULL, data=NULL,returnGamma=FALSE){
   many.weights <- (!is.null(weights)) && (!one.weight)
   if (many.weights && !is.list(weights))
     weights <- list(weights)
-  
+
   # check weights and subsets lengths
   if (many.subsets && many.weights) {
     if (length(subsets) != length(weights))
-      stop("lengths of \"subsets\" and \"weights\" do not match")
-    if (!((!is.null(names(subsets))) && (!is.null(names(weights))) && (!all(names(subsets)==names(weights)))))
-      #if (is.null(alias))
-      # alias <- names(weights)
-      #else
-      warning("names of subsets and weights do not match")
+        stop("lengths of \"subsets\" and \"weights\" do not match")
+    if (length(names(subsets))!=length(names(weights)) || !all(names(subsets) == names(weights)))
+        warning("names of subsets and weights do not match")
   }
   
-  
-  # make sure subsets is a list of names, compatible with colnames(tail)
+  # make sure subsets is a list of names, compatible with colNames.permSpace
   if (many.subsets) {
     osl <- sapply(subsets, length)
     subsets <- lapply(subsets, function(sst) {
@@ -436,18 +464,18 @@ orthoZ <- function(Y, X=NULL, Z=NULL, data=NULL,returnGamma=FALSE){
     })
   }
   
-  # make sure that weights is a named list, compatible with colnames(tail)
+  # make sure that weights is a named list, compatible with colNames.permSpace
   if (many.weights) {
     names.weights <- names(weights)
     weights <- lapply(1:length(weights), function (i) {
       wt <- weights[[i]]
       if (!is.null(names(wt)))
-        wt <- wt[names(wt) %in% colnames(tail)]
+        wt <- wt[names(wt) %in% colNames.permSpace]
       else 
         if (many.subsets && length(wt) == length(subsets[[i]]))
           names(wt) <- subsets[[i]]
-      else if (length(wt) == ncol(tail))
-        names(wt) <- colnames(tail)
+      else if (length(wt) == length(colNames.permSpace))
+        names(wt) <- colNames.permSpace
       wt
     })
     names(weights) <- names.weights
@@ -492,8 +520,8 @@ orthoZ <- function(Y, X=NULL, Z=NULL, data=NULL,returnGamma=FALSE){
 #make "hight" (depending on the tail) values of the statistics to be significative
 .fitTail <- function(permT,tail){
   if (missing(tail)||is.null(tail)) {
-    tail = rep(0, ncol(permT))
-  }     else if (length(tail) != ncol(permT)) {
+    tail = rep(1, ncol(permT))
+  }     else if (length(tail) != ncol(as.matrix(permT))) {
     attrs=attributes(tail)$center
     tail <- rep(tail,len = ncol(permT))
     if(!is.null(attrs)) attributes(tail)$center=rep(attrs,len = ncol(permT))
@@ -546,7 +574,7 @@ orthoZ <- function(Y, X=NULL, Z=NULL, data=NULL,returnGamma=FALSE){
     # tails of the test
     dir=.setTailOut (permT=res$permT, tail=res$tail)		
     #build the results table
-    TAB=data.frame(Stat=as.vector(stat),#sd.permT=as.vector(stDev), pseudoZ=as.vector(pseudoZ),
+    TAB=data.frame(Stat=round(as.vector(stat),4),#sd.permT=as.vector(stDev), pseudoZ=as.vector(pseudoZ),
                    tail=as.vector(dir), p=as.vector(p),stringsAsFactors =FALSE)
   } else if(type=="npc"){
     #build the results table
@@ -628,7 +656,7 @@ orthoZ <- function(Y, X=NULL, Z=NULL, data=NULL,returnGamma=FALSE){
 
 #################################
 .prod.perms <- function(data,perms,testType="permutation"){
-  if(testType%in%c("permutation","symmetry","rotation"))  {
+  if(testType%in%c("permutation","symmetry","rotation","combination"))  {
     if(is.null(perms$permID)){
        digitsK=trunc(log10(perms$B))+1
       envOrig<-environment(perms$rotFunct)
@@ -641,8 +669,8 @@ orthoZ <- function(Y, X=NULL, Z=NULL, data=NULL,returnGamma=FALSE){
 #         if (i%%10==0) {
 #           cat(rep("\b", 2*digitsK+10), i, " / ", perms$B, sep="")
 #           flush.console()
-#         }
-        permT[i+1,]=as.vector(t(data$X)%*%perms$rotFunct())
+#         }  
+        permT[i+1,]=as.vector(t(data$X)%*%perms$rotFunct(i))
       }
       cat(rep("\b", 2*digitsK+1));  flush.console()
       
@@ -667,7 +695,7 @@ orthoZ <- function(Y, X=NULL, Z=NULL, data=NULL,returnGamma=FALSE){
         }
       }
     }
-  } else {warning("test type not implemented (yet?)"); return(NULL)}
+  } else {warning("testType not implemented (yet?)"); return(NULL)}
   cat(rep("\b", 2*digitsK+3));  flush.console()
   permT
 }
@@ -721,7 +749,23 @@ orthoZ <- function(Y, X=NULL, Z=NULL, data=NULL,returnGamma=FALSE){
   colnames(permT)=.getTNames(data$Y,data$X)
   rownames(permT)=.getTRowNames(permT)
   permT
-}	
+}  
+.prod2cor <- function(permT,data){
+  N=nrow(data$Y)
+  permT=permT/N
+  meany=apply(data$Y,2,mean)
+  meanx=apply(data$X,2,mean)
+  vary=apply(data$Y,2,var)
+  varx=apply(data$X,2,var)
+  
+  
+  permT=scale(permT, 
+              center=as.vector(outer(colMeans(data$X),colMeans(data$Y),"*"))  , 
+              scale=(N-1)/N*as.vector(outer(apply(data$X,2,sd),apply(data$Y,2,sd),"*"))  )
+  colnames(permT)=.getTNames(data$Y,data$X)
+  rownames(permT)=.getTRowNames(permT)
+  permT
+}  
 
 .prod2t <- function(permT,data){
   N=nrow(data$Y)

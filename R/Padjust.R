@@ -1,8 +1,16 @@
+#' @rdname npc
+#' @param method A method among \code{\link{flip.npc.methods}} or
+#' \code{\link{p.adjust.methods}}. By default \code{"maxT"} is used.  See also
+#' the section \code{Details}.
+#' @param maxalpha Adjusted p-values greater than \code{maxalpha} are forced to
+#' 1. It saves computational time when there are many hypotheses under test.
+#' @export flip.adjust 
+
 flip.adjust <- function (permTP, method = flip.npc.methods, maxalpha=1, weights=NULL, stdSpace=FALSE, ...) {
     
 	##TODO: here is case sensitive, while in npc it is not. here is so for compatibility with p.adjust. shall we change?
   if(length(method)>1) method <- "maxT" else 
-    method <- match.arg(method,c(p.adjust.methods,flip.npc.methods))
+    method <- match.arg(method,c(p.adjust.methods,flip.npc.methods,"minP_","maxT_"))
   
 	
 	##TODO: add some check for names(weights) compatibility. 
@@ -38,7 +46,7 @@ flip.adjust <- function (permTP, method = flip.npc.methods, maxalpha=1, weights=
       
       # Define the local test to be used in the closed testing procedure
       mytest <- function(hyps) {p.value(npc(permTP[hyps],method,weights=weights[hyps]))}
-      cl <- closed(mytest, names(permTP),alpha=NA)
+      cl <- cherry::closed(mytest, names(permTP),alpha=NA)
       adjs=sapply(names(permTP),function(id) adjusted(cl,id))
 			}
 		}
@@ -67,12 +75,17 @@ flip.adjust <- function (permTP, method = flip.npc.methods, maxalpha=1, weights=
 			if(method=="hommel") {print("weighted \"hommel\" method not allowed."); return()}
 			return(p.adjust.w(permTP, method = method, w=weights))
 		} else{		#perform permutation specific procedures
-			if(method=="minP") {
-				return(.maxt.adjust(-t2p(permTP,obs.only=FALSE,tail=tail), maxalpha,weights=weights))
-			} else if(method=="maxT") {
-			    if(stdSpace) {permTP = .t2stdt(permTP,FALSE)}
-			  return(.maxt.adjust(.setTail(.fixPermT(permTP), tail=tail), maxalpha,weights=weights))
-			} else if(method=="kfwer") {
+		  if(method=="minP") {
+		    return(.maxt.adjust(-t2p(permTP,obs.only=FALSE,tail=tail), maxalpha,weights=weights))
+		  } else if(method=="maxT") {
+		    if(stdSpace) {permTP = .t2stdt(permTP,FALSE)}
+		    return(.maxt.adjust(.setTail(.fixPermT(permTP), tail=tail), maxalpha,weights=weights))
+		  } else if(method=="minP_") {
+		    return(.maxt.adjust_2(-t2p(permTP,obs.only=FALSE,tail=tail), maxalpha,weights=weights))
+		  } else if(method=="maxT_") {
+		    if(stdSpace) {permTP = .t2stdt(permTP,FALSE)}
+		    return(.maxt.adjust_2(.setTail(.fixPermT(permTP), tail=tail), maxalpha,weights=weights))
+		  } else if(method=="kfwer") {
         if(is.null(k)) k=11
 			  if(stdSpace) {permTP = .t2stdt(permTP,FALSE)}
 			  return(.p.adjust.kfwer(.setTail(.fixPermT(permTP), tail=tail), k=k))
@@ -90,6 +103,17 @@ flip.adjust <- function (permTP, method = flip.npc.methods, maxalpha=1, weights=
 
 
 ################
+.maxt.adjust_2 <- function(permT,maxalpha=1,weights=NULL,m=ncol(permT)) {
+#   maxalpha=1 not used !!
+  if(!is.null(weights)) permT=permT%*%diag(weights)
+  ord=order(-permT[1,])
+  permT=permT[,ord]
+  adjps=sapply(1:m,function(i) t2p(obs.only = TRUE,apply(permT[,i:m,drop=FALSE],1,max)))
+  adjps=Reduce(max, adjps,accumulate = TRUE)
+  adjps[ord]=adjps
+  return(adjps)
+}
+
 .maxt.adjust <- function(permT,maxalpha=1,weights=NULL,m=ncol(permT)) {
   
 	#get colnames to 
@@ -111,7 +135,7 @@ flip.adjust <- function (permTP, method = flip.npc.methods, maxalpha=1, weights=
 	i <- 1
 	while((i<=m) & ifelse(i>1,Padjs[steps[i-1]] <= maxalpha,TRUE)){
 		Padjs[steps[i]]=max( 
-      t2p(c(permT[1,steps[i]], apply(permT[-1,notrejs,drop=FALSE],1,max) )) ,
+      t2p(c(permT[1,steps[i]], as.vector(apply(permT[-1,notrejs,drop=FALSE],1,max) ))) ,
       Padjs[steps[i-1]] ) #first max ensures monotonicity
 		notrejs[steps[i]]=FALSE
 		

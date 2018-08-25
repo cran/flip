@@ -22,7 +22,7 @@
     if(statTest=="NA"){ #for missing values
 	    #same function for permutation and rotation tests
 	      test <- .NA.dependence.nptest
-	  } else if(statTest%in%c("sum","t","coeff")){
+	  } else if(statTest%in%c("sum","t","coeff","cor","cor.Spearman")){
 				test <- .t.dependence.nptest		
 		} else if(statTest=="F"){ #ANOVAtype test, 1 column for each column of Y summarizing the dependence with all Xs			
 				test <- .F.dependence.nptest
@@ -48,8 +48,13 @@ if(statTest%in%c("Fisher","Wilcoxon","Kruskal-Wallis","rank","chisq","Kolmogorov
 
 .t.dependence.nptest <- function(){
   data <- .orthoZ(data) #if Z is.null, it doesn't make anything
+  if(statTest=="cor.Spearman"){
+    data$Y=apply(data$Y,2,rank)
+    data$X=apply(data$X,2,rank)
+  }
+  
 	N=nrow(data$Y)
-  perms <- make.permSpace(1:N,perms,return.permIDs=TRUE,testType=testType, Strata=data$Strata)
+  perms <- make.permSpace(1:N,perms,return.permIDs=TRUE,testType=testType, Strata=data$Strata,X=apply(data$X,1,paste,collapse="_"))
 	#search for intercept in the model
   intercept=.getIntercept(data$X)
   if(statTest=="coeff") {
@@ -65,9 +70,11 @@ if(statTest%in%c("Fisher","Wilcoxon","Kruskal-Wallis","rank","chisq","Kolmogorov
 		#data$X=scale(data$X,scale=FALSE)
   permT=.prod.perms(data,perms,testType=testType)
 	
-	if(statTest%in%c("sum","coeff") )
-		permT= .prod2sum(permT,data)
-	else if(statTest=="t") {
+  if(statTest%in%c("sum","coeff") )
+    permT= .prod2sum(permT,data)
+  else if(statTest%in%c("cor","cor.Spearman") )
+    permT= .prod2cor(permT,data)
+  else if(statTest=="t") {
 		permT= .prod2t(permT,data)
 		if(any(intercept) ) permT =permT * sqrt((N-1-sum(intercept))/(N-1))
 		}
@@ -120,7 +127,7 @@ if(statTest%in%c("Fisher","Wilcoxon","Kruskal-Wallis","rank","chisq","Kolmogorov
 	#search for intercept in the model
 	intercept=.getIntercept(data$X)
 	if(any(intercept)) data$X=data$X[,!intercept,drop=FALSE]
-
+  
 	if(statTest=="rank")
 			statTest=ifelse(ncol(data$X)>1,"Kruskal-Wallis","Wilcoxon")
 

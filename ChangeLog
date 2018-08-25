@@ -33,3 +33,7 @@
 - minor bugs fixed.
 - mahalanobis combining function implemented in npc()
 
+2.5 (2018.08.25)
+- the package is roxygenized
+- function allpermutations now relies on the function permutation of the package (e1071) (much faster)
+- rom function is not c-compiled anymore.
