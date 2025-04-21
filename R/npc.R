@@ -127,7 +127,7 @@ flip.npc.methods <-
 npc <- function(permTP, comb.funct = c(flip.npc.methods, p.adjust.methods) ,subsets=NULL,weights=NULL, stdSpace=FALSE, ...){
 #	on.exit(browser())
 	### just in analogy with gt(). to be implemented as flip-options
-	trace=TRUE
+	trace=FALSE
 	if(is.null(list(...)$flipReturn))
     flipReturn=list(permT=TRUE,call.env=TRUE) else
       flipReturn=list(...)$flipReturn
@@ -235,8 +235,18 @@ npc <- function(permTP, comb.funct = c(flip.npc.methods, p.adjust.methods) ,subs
       permT} else
       if(comb.funct %in% c("maxT", "maxTstd"))
         test= function(subset=NULL,weights=NULL){ #browser()
-          permT = matrix(apply(if(is.null(subset)) { if(one.weight) t(all.weights*t(permTP)) else permTP } else
-            t(weights[subset]*t(permTP[,subset,drop=FALSE])) , 1, max))  ;
+          permT = matrix(apply(
+            if(is.null(subset)) { 
+              if(one.weight) 
+                t(all.weights*t(permTP)) 
+              else 
+                permTP 
+              } else {
+                if(is.null(weights))
+                  (permTP[,subset,drop=FALSE]) 
+                else
+                  t(weights[subset]*t(permTP[,subset,drop=FALSE]))
+            }, 1, max))  ;
           permT
         } else
       if(comb.funct %in% c("minP"))
@@ -269,11 +279,10 @@ npc <- function(permTP, comb.funct = c(flip.npc.methods, p.adjust.methods) ,subs
            pseudoT=qnorm( t2p(pseudoT,tail=1,obs.only=FALSE)*.99999999999)  else
              pseudoT=scale(pseudoT,scale=FALSE)
 
-         ei=eigen(t(pseudoT)%*%pseudoT,symmetric=TRUE)
-         ei$values[ei$values<0]=0
-         invhalfEV=ei$values^-.5
-         keep= is.finite(invhalfEV)
-					  permT=matrix(rowSums((pseudoT %*% ei$vectors[,keep] %*% diag(invhalfEV[keep]))^2)*sum(keep))
+         ei=svd(pseudoT,nv=0)
+         ei$d[ei$d<=0]=NA
+         keep= is.finite(ei$d)
+					  permT=matrix(rowSums(ei$u[,keep]^2)*nrow(ei$u))
          permT
 					}
 
@@ -285,7 +294,8 @@ npc <- function(permTP, comb.funct = c(flip.npc.methods, p.adjust.methods) ,subs
 	nVar=ncol(permTP)
   } else {
     L <- if (many.subsets) length(subsets) else length(weights)
-    permT <- plyr::laply(1:L, function (i) { 
+    permT <- plyr::laply(1:L, 
+                         function (i) { 
       if (trace && L>1) {
         cat(rep("\b", 2*digitsK+3), i, " / ", K, sep="")
         flush.console()
@@ -299,7 +309,11 @@ npc <- function(permTP, comb.funct = c(flip.npc.methods, p.adjust.methods) ,subs
       }
 	  uit
     })
-    permT=t(permT)
+    # browser()
+    
+    if(is.vector(permT)) 
+      permT=as.matrix(permT) else
+        permT=t(permT)
     if (many.subsets && !is.null(names(subsets))){
       colnames(permT) <- names(subsets)
 	}

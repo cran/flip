@@ -13,11 +13,11 @@ setClassUnion("listOrNULL", c("list", "NULL"))
 # Can extend and create with new("flip.object", ...)
 #' @title Class flip.object
 #'
-#' @description The class flip.object is the output of a call to \code{\link{flip}}, \code{\link{flipMix}}, \code{\link{npc}}, \code{\link{flip.adjust}} etc. 
+#' @description The class flip.object is the output of a call to \code{\link{flip}}, \code{\link{flipMix}}, \code{\link{npc}}, \code{\link{flip.adjust}} etc.
 #' The following are functions to extract and manipulate relevant information from
 #' a \code{flip.object}.
 
-#' 
+#'
 #' @name flip.object-class
 #' @rdname flip.object-class
 #' @exportClass flip.object
@@ -67,7 +67,7 @@ setMethod("initialize", "flip.object",
 #' @return NULL
 #' @aliases show,flip.object-method
 #' @docType methods
-# 
+#
 setMethod("show", "flip.object", function(object)
   {
     if(!is.null(object@res)&&(nrow(object@res)>0)){
@@ -185,15 +185,21 @@ setMethod("summary", "flip.object", function(object,star.signif=TRUE,only.p.leq=
 # setGeneric("p.value", function(object, ...) standardGeneric("p.value"))
 
 
-# @export
-# @rdname flip.object-class
-# @aliases p.value,flip.object-method
-# setMethod("p.value", "flip.object",
+
+# #==========================================================
+# # get p.values of flip-object
+# #==========================================================
+
+#@title p.value
+#' @rdname getFlip
+# @param object a \code{flip.object}
+#' @export
+#'
+
 p.value <-  function(object) {
     x=object@res[,"p-value"]
 	names(x)=names(object)
 	x
-
 }
 
 
@@ -269,14 +275,14 @@ setMethod("dim", "flip.object",
 #' @docType methods
 #' @param x a \code{flip.object}.
 #' @param y not used.
-#' @param i indices specifying elements to extract or replace. Indices are \code{numeric}, \code{character} or \code{logical} vectors or empty (missing) or \code{NULL}. 
+#' @param i indices specifying elements to extract or replace. Indices are \code{numeric}, \code{character} or \code{logical} vectors or empty (missing) or \code{NULL}.
 
 # @name flip.object-class
 #' @rdname flip.object-class
 #' @exportMethod [
 #' @aliases [,flip.object-method
 
-setMethod("[", "flip.object", 
+setMethod("[", "flip.object",
           function (x, i){
   iii=i
 	if(is.character(i) && !all(i %in% names(x))){
@@ -323,7 +329,7 @@ setMethod("[", "flip.object",
 #' @aliases [[,flip.object-method
 #' @docType methods
 #' @rdname flip.object-class
-#' 
+#'
 setMethod("[[", "flip.object",
             function(x, i)
 {
@@ -339,7 +345,7 @@ setMethod("[[", "flip.object",
 #' @docType methods
 #' @rdname flip.object-class
 #' @export
-#' 
+#'
 setMethod("length", "flip.object",
             function(x)
 {
@@ -367,7 +373,7 @@ setMethod("names", "flip.object",
 
 
 #' @aliases names<-,flip.object-method
-#' @param value \code{character} vector of up to the same 
+#' @param value \code{character} vector of up to the same
 #' length as \code{x}, or \code{NULL}.
 #' @docType methods
 #' @rdname flip.object-class
@@ -394,7 +400,7 @@ setMethod("names<-", "flip.object",
 # @name flip.object-class
 #' @rdname flip.object-class
 #' @aliases sort,flip.object-method
-#' @param decreasing logical. Should the sort be increasing or decreasing?  
+#' @param decreasing logical. Should the sort be increasing or decreasing?
 setMethod("sort", "flip.object",
   function(x, decreasing = FALSE ) {
       ix <- order(p.value(x), decreasing=decreasing)
@@ -417,7 +423,7 @@ setMethod("sort", "flip.object",
 ##########
 # @rdname flip.object-class
 # @aliases p.adjust,flip.object-method
-# 
+#
 # setMethod("p.adjust", matchSignature(signature(p = "flip.object"), p.adjust),
 #   function(p, method = p.adjust.methods, n = length(p)) {
 #     method <- method[1]
@@ -428,9 +434,9 @@ setMethod("sort", "flip.object",
 #       p@res <- cbind(p@res, p.adjust(p.value(p), method=method))
 #     else
 #       p@res <- cbind(p@res, p.adjust(p.value(p), method=method, n=n))
-# 
+#
 # 	colnames(p@res)[length(colnames(p@res))]=paste("Adjust:",method,sep="")
-# 
+#
 #     p
 #   }
 # )
@@ -443,7 +449,7 @@ setMethod("sort", "flip.object",
 #' \code{hist}: it produces the histogram of the distribution of the test statistic.
 #' When there are more test, it produces one histogram for each test statistic.
 #' @rdname flip.object-class
-#' @exportMethod hist  
+#' @exportMethod hist
 #' @aliases hist,flip.object-method
 
 # setGeneric("hist", function(x,...) standardGeneric("hist"))
@@ -452,29 +458,29 @@ setMethod("hist", "flip.object", function(x, ...)  {
 
   flip.hist <- function(x, breaks=100, main=NULL, xlab = "Test Statistics", ...) {
 
-     if (length(x) > 1){
+    if (length(x) > 1){
 
-       f<-function(k=length(x),yxratio=1.25){
-       n.cl=ceiling(sqrt(k*yxratio) )
-       n.rw=ceiling(k/n.cl)
-       if((n.cl-1)*n.rw>=k) n.cl=n.cl-1
-       c(n.cl,n.rw)}
-       mfrow.now=par("mfrow")
-       par(mfrow=f(k=length(x),yxratio=1.25))
-        res=sapply(1:length(x),function(i)flip.hist(x[i]))
-       par(mfrow=mfrow.now)
+      f<-function(k=length(x),yxratio=1.25){
+        n.cl=ceiling(sqrt(k*yxratio) )
+        n.rw=ceiling(k/n.cl)
+        if((n.cl-1)*n.rw>=k) n.cl=n.cl-1
+        c(n.cl,n.rw)}
+      mfrow.now=par("mfrow")
+      par(mfrow=f(k=length(x),yxratio=1.25))
+      res=sapply(1:length(x),function(i)flip.hist(x[i]))
+      par(mfrow=mfrow.now)
 
-       return(invisible(res))
-#      stop("length(object) > 1. Please reduce to a single test result")
-  }
+      return(invisible(res))
+      #      stop("length(object) > 1. Please reduce to a single test result")
+    }
     # if (is.null(x@weights))
-      # weights <- rep(1, dim(x))
+    # weights <- rep(1, dim(x))
     # else
-      # weights <- x@weights[[1]]
+    # weights <- x@weights[[1]]
     # if (is.null(x@subsets))
-      # subset <- seq_len(dim(x))
+    # subset <- seq_len(dim(x))
     # else
-      # subset <- x@subsets[[1]]
+    # subset <- x@subsets[[1]]
 
     #recalculate <- x@functions$permutations(subset, weights)
     if(is.null(main))  main=names(x)[1]
@@ -482,23 +488,28 @@ setMethod("hist", "flip.object", function(x, ...)  {
     nperm <- length(x@permT-1)
     hst <- hist(x@permT,plot=FALSE, breaks = breaks)
 
-      cols=rep("#00A08A",length(hst$breaks)-1)
-      cols.brd=cols
-      pts=.setTail(cbind(c(x@permT[1,],hst$mids)),x@tail)
-      cols[which(pts[-1]>=pts[1] )]="#F98400"
-#       cols.brd[which(pts[-1]>=pts[1] )]="#FF0000"
+    cols=rep("#00A08A",length(hst$breaks)-1)
+    cols.brd=cols
+    pts=.setTail(cbind(
+      c(x@permT[1,],
+        hst$breaks[1:(floor(length(hst$breaks)/2)-1)],
+        hst$breaks[(floor(length(hst$breaks)/2)+1):length(hst$breaks)]
+      )),x@tail)
+    change_color=(pts[-1]>=pts[1] )
+    cols[change_color]="#F98400"
+    #       cols.brd[which(pts[-1]>=pts[1] )]="#FF0000"
 
-     plot(hst,          xlim = c(1.1 * min(0, x@permT), 1.1 * max(x@permT)),
-      main = main, xlab = xlab,col=cols,
-      , border= cols.brd#"#F2AD00"
-      , ...)#"#00A08A"
-     if(is.null(list(...)$freq) & is.null(list(...)$probability))
-       h <- max(hst$counts) else {
-         if(c(1-list(...)$freq,list(...)$probability)>0 )
-           h <- max(hst$density) else
-             h <- max(hst$counts)
-       }
-redUnipd="#FF0000"
+    plot(hst,          xlim = c(1.1 * min(0, x@permT), 1.1 * max(x@permT)),
+         main = main, xlab = xlab,col=cols,
+         , border= cols.brd#"#F2AD00"
+         , ...)#"#00A08A"
+    if(is.null(list(...)$freq) & is.null(list(...)$probability))
+      h <- max(hst$counts) else {
+        if(c(1-list(...)$freq,list(...)$probability)>0 )
+          h <- max(hst$density) else
+            h <- max(hst$counts)
+      }
+    redUnipd="#FF0000"
     lines(  c(Q, Q), c(h/2, 0) , lwd=2,col=redUnipd)
     points( Q,0 , lwd=2,col=redUnipd,pch=21,bg=redUnipd)
     text( Q, h/2, 'Observed\ntest\nstatistic' , pos=3,col=redUnipd)
@@ -520,7 +531,7 @@ redUnipd="#FF0000"
 #'  distribution of the test statistics.
 #' When there are more than 2 tests, the plot is based on the first two principal components.
 #' @exportMethod plot
-#' @examples 
+#' @examples
 #' Y=matrix(rnorm(50),10,5)
 #' colnames(Y)=LETTERS[1:5]
 #' Y[,1:2]=Y[,1:2] +2
@@ -570,6 +581,7 @@ setMethod("plot", "flip.object",
       pc=prcomp(x@permT,scale. =FALSE,center=FALSE)
 #       reduce the data
       pc$x=pc$x[,which.PCs]
+      tot.var=sum(pc$sdev^2)
       pc$sdev=pc$sdev[which.PCs]
       pc$rotation=pc$rotation[,which.PCs]
 
@@ -583,8 +595,8 @@ setMethod("plot", "flip.object",
       datapc=pc$rotation[,1:2]*sqrt(nrow(pc$rotation))*1.3
 
       plot(pc$x, xlim=range(c(pc$x[,1],datapc[,1])), ylim=range(c(pc$x[,2],datapc[,2])),
-           xlab=paste("PC1 (",round(pc$ sdev [1]^2 /sum(pc$ sdev ^2) *100,2)," %)",sep=""),
-           ylab=paste("PC2 (",round(pc$ sdev [2]^2 /sum(pc$ sdev ^2) *100,2)," %)",sep=""),
+           xlab=paste("PC1 (",round(pc$ sdev [1]^2 /tot.var *100,2)," %)",sep=""),
+           ylab=paste("PC2 (",round(pc$ sdev [2]^2 /tot.var *100,2)," %)",sep=""),
            main= "PCA of Permutation Space" ,
            bg=bg, col=col,pch=pch,asp=asp)
 
@@ -623,42 +635,43 @@ setMethod("plot", "flip.object",
 
 #' @title getFlip
 #' @aliases getFlip
-#' @param obj a \code{flip.object}
+#' @param object a \code{flip.object}
 #' @param element element to the returned
 #' @export
-#' @description It returns a given element of a flip.object.
-#' @return values of the element requested.
-#'   
-getFlip <- function(obj,element){
-  if(element%in%slotNames(obj))
-    return(slot(obj,element))
+#' @description \code{getFlip} returns a given element of a flip.object.
+#' \code{p.value} returns the p-values of a \code{flip.object}.
+#' @return \code{getFlip} retuns a vector with values of the element requested. \code{p.value} returns a vector of p-values.
+#'
+getFlip <- function(object,element){
+  if(element%in%slotNames(object))
+    return(slot(object,element))
 
-  if(element%in%names(obj@res))
-    return(obj@res[element])
+  if(element%in%names(object@res))
+    return(object@res[element])
 
   if(tolower(element)%in%c(tolower("Adjust:"),tolower("Adjust")))
-    return(obj@res[grep("Adjust",colnames(obj@res))])
+    return(object@res[grep("Adjust",colnames(object@res))])
 
-  if(!is.null(obj@data)){
-    if(element%in%names(obj@data))
-      return(obj@data[element])
-
-    if(substr(element,1,5)=="data$")
-      return(obj@data[substr(element,6,nchar(element))])
-
-  } else if(!is.null(obj@call.env$data)){
-
-    if(element%in%names(obj@data))
-      return(obj@data[element])
+  if(!is.null(object@data)){
+    if(element%in%names(object@data))
+      return(object@data[element])
 
     if(substr(element,1,5)=="data$")
-      return(obj@data[substr(element,6,nchar(element))])
+      return(object@data[substr(element,6,nchar(element))])
+
+  } else if(!is.null(object@call.env$data)){
+
+    if(element%in%names(object@data))
+      return(object@data[element])
+
+    if(substr(element,1,5)=="data$")
+      return(object@data[substr(element,6,nchar(element))])
 
   }
 
   if(substr(element,1,4)=="res$")
-    return(obj@res[substr(element,5,nchar(element))])
+    return(object@res[substr(element,5,nchar(element))])
 
   if(element%in%c("nperms","perms","B"))
-    return(obj@permSpace$B)
+    return(object@permSpace$B)
 }

@@ -1,11 +1,10 @@
 Package: flip
 Type: Package
 Title: Multivariate Permutation Tests
-Version: 2.5.0
-Date: 2018-08-25
-Author: Livio Finos, with contributions by Florian Klinglmueller, Dario Basso,
-    Aldo Solari, Lucia Benetazzo, Jelle Goeman and Marco Rinaldo.
-Maintainer: Livio Finos <livio.finos@unipd.it>
+Version: 2.5.1
+Date: 2025-04-21
+Authors@R: 
+    c(person("Livio", "Finos", email = "livio.finos@unipd.it", role = c("cre","aut"), comment = c(ORCID = "0000-0003-3181-8078")))
 Description: It implements many univariate and multivariate permutation (and
     rotation) tests. Allowed tests: the t one and two samples, ANOVA, linear
     models, Chi Squared test, rank tests (i.e. Wilcoxon, Mann-Whitney,
@@ -17,14 +16,15 @@ Description: It implements many univariate and multivariate permutation (and
     Testing (Marcus, 1976) and k-FWER. Moreover, it allows to test for fixed
     effects in mixed effects models.
 License: GPL (>= 2)
-URL: ttps://CRAN.R-project.org/package=flip
 LazyLoad: yes
 LazyData: true
-Packaged: 2018-08-25 15:52:35 UTC; livio
+Packaged: 2025-04-21 15:24:01 UTC; finos
 NeedsCompilation: yes
 Repository: CRAN
-RoxygenNote: 6.0.1
+RoxygenNote: 7.1.2
 Encoding: UTF-8
 ByteCompile: true
 Imports: methods, cherry, e1071, plyr, someMTP
-Date/Publication: 2018-08-25 22:05:41 UTC
+Author: Livio Finos [cre, aut] (<https://orcid.org/0000-0003-3181-8078>)
+Maintainer: Livio Finos <livio.finos@unipd.it>
+Date/Publication: 2025-04-21 15:50:02 UTC

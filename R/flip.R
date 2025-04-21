@@ -309,9 +309,12 @@ flip <- function(Y, X=NULL, Z=NULL, data=NULL, tail = 0, perms = 1000, statTest=
 
   						data$X=data$X[,keep,drop=FALSE]
   						levs=unique(data$X)
-  						data$Y=t(sapply(unique(as.character(unlist(data$Strata))), function(ids){
-                data$Y[(data$Strata==ids)&(data$X==levs[2]),]-
-                data$Y[(data$Strata==ids)&(data$X==levs[1]),]}))
+  						data$Y=sapply(unique(as.character(unlist(data$Strata))), function(ids){
+                data$Y[(data$Strata==ids)&(data$X==levs[2]),,drop=FALSE]-
+                data$Y[(data$Strata==ids)&(data$X==levs[1]),,drop=FALSE]})
+  						if (!is.matrix(data$Y)) 
+  						  data$Y = matrix(data$Y) else
+  						    data$Y=t(data$Y)
 
   						attributes(data$Y)$assign=attrsYassign
   						attributes(data$Y)$factors=attrsYfactors
@@ -364,13 +367,13 @@ flip <- function(Y, X=NULL, Z=NULL, data=NULL, tail = 0, perms = 1000, statTest=
     permT[1,]=obs
     for(i in 2:(perms$B))
       {permT[i,]=statTest(Y[sample(perms$n),,drop=FALSE] )
-              if (i%%10==0) {
-                cat(rep("\b", 2*digitsK+3), i, " / ", perms$B, sep="")
-                flush.console()
-              }
+              # if (i%%10==0) {
+                # cat(rep("\b", 2*digitsK+3), i, " / ", perms$B, sep="")
+                # flush.console()
+              # }
     }
-    flush.console()
-    cat("\n")
+    # flush.console()
+    # cat("\n")
     if(is.null(colnames(permT))){
       if(ncol(permT)==ncol(Y))
           colnames(permT)=.getTNames(Y,,permT=permT,checkUnique=TRUE) else
